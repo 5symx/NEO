@@ -303,16 +303,16 @@ class LlamaModel:
 
         Returns the output tokens.
         """
-        self._prepare_inputs(batches)
+        self._prepare_inputs(batches)   # use config to initialize tensor for buffer during forward layers
         self.events.pf_record("frwd_s")
 
         # Main body of the forward pass
         # start = time.perf_counter()
-        embeddings = self.pre_layer.forward(sum([Request.get_input_tokens(b.all_reqs) for b in batches], []))
+        embeddings = self.pre_layer.forward(sum([Request.get_input_tokens(b.all_reqs) for b in batches], []))   # embedding
         self.events.pf_record("fstg_s")
 
         if len(batches) == 1:
-            embeddings = self._forward_sequential(batches[0], embeddings)
+            embeddings = self._forward_sequential(batches[0], embeddings)   # forward 
         elif len(batches) == 2:
             embeddings =  self._forward_pipeline(batches, embeddings)
         else:
@@ -354,7 +354,7 @@ class LlamaModel:
                 for layer_id in range(self.model_config.num_layers):
                     self.swapper.swap_blocks(*swappings, is_swap_out, layer_id, layer_id)
 
-        return self._forward_batches(batches)
+        return self._forward_batches(batches)   # pre - forward - post
     
 
     def turn_on_perf_monitor(self):

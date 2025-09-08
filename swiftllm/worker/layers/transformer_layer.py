@@ -5,7 +5,8 @@ Transformer layer utilities in the Llama model
 import time
 import torch
 import torch.distributed as dist
-import vllm_flash_attn_2_cuda as flash_attn_cuda
+#import vllm_flash_attn_2_cuda as flash_attn_cuda
+import flash_attn_2_cuda as flash_attn_cuda
 # import vllm_flash_attn
 
 # pylint: disable=no-name-in-module
@@ -287,6 +288,7 @@ class LlamaTransformerLayer:
                     None,
                     None,  # block table
                     None,  # alibi slopes
+                    None,       # add to align with flash_attn_cuda call
                     batch.max_pref_toks,
                     batch.max_pref_toks,
                     0.0,

@@ -32,9 +32,9 @@ void swap_blocks(
 	torch::Tensor v_swap
 ) {
 	cudaStream_t stream = at::cuda::getCurrentCUDAStream();
-	size_t gpu_layer_size_in_bytes = getTensorSizeInBytes(k_cache) / k_cache.size(0);
+	size_t gpu_layer_size_in_bytes = getTensorSizeInBytes(k_cache) / k_cache.size(0); // layer number
 	size_t cpu_layer_size_in_bytes = getTensorSizeInBytes(k_swap) / k_swap.size(0);
-	size_t block_layer_size_in_bytes = gpu_layer_size_in_bytes / k_cache.size(1); // same for gpu and cpu
+	size_t block_layer_size_in_bytes = gpu_layer_size_in_bytes / k_cache.size(1); // same for gpu and cpu // blocks number
 
 	char* k_cache_ptr = (char*)k_cache.data_ptr() + gpu_layer * gpu_layer_size_in_bytes;
 	char* v_cache_ptr = (char*)v_cache.data_ptr() + gpu_layer * gpu_layer_size_in_bytes;
@@ -47,7 +47,7 @@ void swap_blocks(
 		int end_index = start_index+1;
 		while (end_index < num_blocks_to_swap &&
 					source_block_ids[end_index] == source_block_ids[end_index-1]+1 &&
-					target_block_ids[end_index] == target_block_ids[end_index-1]+1) {
+					target_block_ids[end_index] == target_block_ids[end_index-1]+1) {	// continuously copy
 			end_index++;
 		}
 		int cur_segment_len = end_index - start_index;

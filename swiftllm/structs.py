@@ -266,8 +266,8 @@ class SubBatch:
         self.num_gprfs = len(self.gprf_reqs)
         self.num_gdecs = len(self.gdec_reqs)
         self.num_cdecs = len(self.cdec_reqs)
-        self.num_prefs = self.num_cprfs + self.num_gprfs
-        self.num_prgds = self.num_prefs + self.num_gdecs
+        self.num_prefs = self.num_cprfs + self.num_gprfs # all prefill
+        self.num_prgds = self.num_prefs + self.num_gdecs # prefill + decode
 
         self.all_reqs = self.cprf_reqs + self.gprf_reqs + self.gdec_reqs + self.cdec_reqs
         assert all(req.request_id >= 0 for req in self.all_reqs), "Request ID not set"

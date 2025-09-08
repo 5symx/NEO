@@ -133,7 +133,7 @@ if __name__ == '__main__':
             reqs[i] = swiftllm.create_request(input_ids, i)
             batch.add_pref(reqs[i], is_gpu=True)
         gpu_reqs = [reqs[i] for i in gpu_req_ids]
-        engine.step([batch])
+        engine.step([batch])    # block_swap + forward
 
     if ncpu_prompts:
         batch = swiftllm.SubBatch()

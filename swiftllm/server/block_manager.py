@@ -100,9 +100,9 @@ class DeviceBlockManager:
                 seq_num_blks: {seq_num_blks}"""
         
         new_num_blks = tgt_num_blks - seq_num_blks
-        new_blk_ids0 = self._get_new_blk_ids(torch.sum(new_num_blks[split_point:]), 0)
+        new_blk_ids0 = self._get_new_blk_ids(torch.sum(new_num_blks[split_point:]), 0) # from split id 0 select new block id
         new_blk_ids1 = self._get_new_blk_ids(torch.sum(new_num_blks[:split_point]), 1)
-        new_blk_pids = torch.cat([new_blk_ids1, new_blk_ids0])
+        new_blk_pids = torch.cat([new_blk_ids1, new_blk_ids0]) # new block id list
 
         seq_num_blks_list = seq_num_blks.tolist()
         new_num_blks_list = new_num_blks.tolist()
@@ -187,7 +187,7 @@ class BlockManager:
         
         src_block_manager = self.gpu_block_manager if is_swap_out else self.cpu_block_manager
         dst_block_manager = self.cpu_block_manager if is_swap_out else self.gpu_block_manager
-        src_blk_pids = src_block_manager.free(reqs, int(use_itm))
+        src_blk_pids = src_block_manager.free(reqs, int(use_itm))   # free pid block of req in src
         dst_blk_vids, dst_blk_pids = dst_block_manager.alloc(reqs, omit_last=omit_last)
         return src_blk_pids, dst_blk_vids, dst_blk_pids
 
@@ -223,7 +223,7 @@ class BlockManager:
         
         # 1. Do conventional swaps
         is_swap_out = bool(cur_swap_out)
-        sp, dv, dp = self._initiate_swap(cur_swap_out or cur_swap_in, is_swap_out)
+        sp, dv, dp = self._initiate_swap(cur_swap_out or cur_swap_in, is_swap_out)  # src pid dst vid dst pid
         mappings[is_swap_out][0].extend(dv)
         mappings[is_swap_out][1].extend(dp)
         swappings[0].extend(sp)
@@ -233,11 +233,11 @@ class BlockManager:
         sum_batch_size = 0
         sum_iter_width = 0
         for batch in batches:
-            batch.set_model_forward_args(self.model_config)
+            batch.set_model_forward_args(self.model_config)                         # set config & select seq_block_size.
             assert batch.batch_size > 0, "Batch size should be greater than 0"
             sum_batch_size += batch.batch_size
-            sum_iter_width += batch.iter_width  
-            (gv, gp), (cv, cp) = self._alloc_blocks_for_batch(batch)
+            sum_iter_width += batch.iter_width
+            (gv, gp), (cv, cp) = self._alloc_blocks_for_batch(batch)                # gpu:p+gd cpu:cd
             mappings[0][0].extend(gv)
             mappings[0][1].extend(gp)
             mappings[1][0].extend(cv)
@@ -249,7 +249,7 @@ class BlockManager:
         
         # 3. Do cprf swaps, this should happen after the batch allocation
         for batch in batches:
-            sp, dv, dp = self._initiate_swap(
+            sp, dv, dp = self._initiate_swap(                                          # gpu -> cpu: cprefill
                 batch.all_reqs[:batch.num_cprfs], is_swap_out=True, 
                 use_itm=self.engine_config.extra_layer_for_cprf, omit_last=False
             )
