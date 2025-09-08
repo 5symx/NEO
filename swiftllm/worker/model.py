@@ -150,7 +150,7 @@ class LlamaModel:
         # CPU kernel library & stream
         if engine_config.library_path:
             torch.ops.load_library(engine_config.library_path)        
-        self.cpu_communication_stream = torch.cuda.Stream()
+        self.Gpu_communication_stream = torch.cuda.Stream()
 
         # Load weights
         self.weight = load_weights(
@@ -171,7 +171,7 @@ class LlamaModel:
                 self.engine_config,
                 self.weight.layers[layer_id],
                 self.weight.layers[layer_id + 1 - self.model_config.num_layers],
-                self.cpu_communication_stream,
+                self.Gpu_communication_stream,
                 layer_id
             )
             for layer_id in range(self.model_config.num_layers)
@@ -267,7 +267,7 @@ class LlamaModel:
 
         """
         # Wait for swappings to finish
-        torch.cuda.current_stream().wait_stream(self.cpu_communication_stream)
+        torch.cuda.current_stream().wait_stream(self.Gpu_communication_stream)
         self.events.pf_record("mnbd_s")
         for layer in self.transformer_layers:
             embeddings = layer.forward(batch, embeddings)
@@ -350,7 +350,7 @@ class LlamaModel:
             self.swapper.set_block_tables(mappings)
 
         if swappings[0]:
-            with torch.cuda.stream(self.cpu_communication_stream):
+            with torch.cuda.stream(self.Gpu_communication_stream):
                 for layer_id in range(self.model_config.num_layers):
                     self.swapper.swap_blocks(*swappings, is_swap_out, layer_id, layer_id)
 

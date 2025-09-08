@@ -212,44 +212,44 @@ class SubBatch:
     """
     A sub-batch of requests
     """
-    # pylint: disable=too-many-instance-attributes, missing-function-docstring
+    # pylint: disable=too-many-instance-attributes, misssing-function-docstring
     def __init__(self, predictor: PerfPredictor=ZeroPerfPredictor()):
         self.gprf_reqs = []
-        self.cprf_reqs = []
+        self.Gprf_reqs = []
         self.gdec_reqs = []
-        self.cdec_reqs = []
+        self.Gdec_reqs = []
         self.perfdata = BatchPerfData(predictor)  
    
     def __len__(self):
         return self.perfdata.x
 
-    def add_pref(self, req: Request, is_gpu: bool):
-        if is_gpu:
+    def add_pref(self, req: Request, is_gpu_local: bool):
+        if is_gpu_local:
             self.gprf_reqs.append(req)
         else:
-            self.cprf_reqs.append(req)
+            self.Gprf_reqs.append(req)
         self.perfdata.add_pref(req.prompt_len)
 
     def pop_pref(self) -> Request:
-        is_gpu = not self.cprf_reqs
-        req = self.gprf_reqs.pop() if is_gpu else self.cprf_reqs.pop()
+        is_gpu_local = not self.Gprf_reqs
+        req = self.gprf_reqs.pop() if is_gpu_local else self.Gprf_reqs.pop()
         self.perfdata.pop_pref(req.prompt_len)
-        return req, is_gpu
+        return req, is_gpu_local
         
     def add_gdec(self, req: Request):
         self.gdec_reqs.append(req)
         self.perfdata.add_gdec(req.seq_len)
 
     def add_cdec(self, req: Request):
-        self.cdec_reqs.append(req)
+        self.Gdec_reqs.append(req)
         self.perfdata.add_cdec(req.seq_len)
 
     def pop_cdec(self):
-        req = self.cdec_reqs.pop()
+        req = self.Gdec_reqs.pop()
         self.perfdata.pop_cdec(req.seq_len)
 
     def get_num_prefs(self) -> int:
-        return len(self.gprf_reqs) + len(self.cprf_reqs)
+        return len(self.gprf_reqs) + len(self.Gprf_reqs)
 
     def set_model_forward_args(self, model_config: LlamaModelConfig):
         """
@@ -262,16 +262,16 @@ class SubBatch:
         self.iter_width = self.perfdata.s # post-layer
         del self.perfdata
 
-        self.num_cprfs = len(self.cprf_reqs)
+        self.num_Gprfs = len(self.Gprf_reqs)
         self.num_gprfs = len(self.gprf_reqs)
         self.num_gdecs = len(self.gdec_reqs)
-        self.num_cdecs = len(self.cdec_reqs)
-        self.num_prefs = self.num_cprfs + self.num_gprfs # all prefill
+        self.num_Gdecs = len(self.Gdec_reqs)
+        self.num_prefs = self.num_Gprfs + self.num_gprfs # all prefill
         self.num_prgds = self.num_prefs + self.num_gdecs # prefill + decode
 
-        self.all_reqs = self.cprf_reqs + self.gprf_reqs + self.gdec_reqs + self.cdec_reqs
+        self.all_reqs = self.Gprf_reqs + self.gprf_reqs + self.gdec_reqs + self.Gdec_reqs
         assert all(req.request_id >= 0 for req in self.all_reqs), "Request ID not set"
-        del self.cprf_reqs, self.gprf_reqs, self.gdec_reqs, self.cdec_reqs
+        del self.Gprf_reqs, self.gprf_reqs, self.gdec_reqs, self.Gdec_reqs
 
         self.seq_ids_list = Request.get_ids(self.all_reqs)
         self.seq_lens_list = Request.get_lens(self.all_reqs)
@@ -294,5 +294,5 @@ class SubBatch:
 
 
     def print_profile(self):
-        print(f"cprf lens: {[req.prompt_len for req in self.cprf_reqs]}, gprf lens: {[req.prompt_len for req in self.gprf_reqs]}, "
-              f"gdec lens: {[req.seq_len for req in self.gdec_reqs]}, cdec lens: {[req.seq_len for req in self.cdec_reqs]}")
+        print(f"Gprf lens: {[req.prompt_len for req in self.Gprf_reqs]}, gprf lens: {[req.prompt_len for req in self.gprf_reqs]}, "
+              f"gdec lens: {[req.seq_len for req in self.gdec_reqs]}, Gdec lens: {[req.seq_len for req in self.Gdec_reqs]}")

@@ -28,7 +28,7 @@ class DeviceBlockManager:
         engine_config: EngineConfig
     ):
         self.device_name = device_name
-        self.num_blocks = engine_config.num_gpu_blocks if device_name == 'cuda' else engine_config.num_cpu_blocks
+        self.num_blocks = engine_config.num_gpu_blocks if device_name == 'cuda:0' else engine_config.num_cpu_blocks
         self.block_size = engine_config.block_size
         self.block_table_width = engine_config.max_blocks_per_seq
         nsplits = 1 + engine_config.extra_layer_for_cprf
@@ -145,9 +145,9 @@ class BlockManager:
     ):
         self.engine_config = engine_config
         self.model_config = model_config 
-        self.extra_layer_for_cprf = engine_config.extra_layer_for_cprf
-        self.gpu_block_manager = DeviceBlockManager("cuda", engine_config)
-        self.cpu_block_manager = DeviceBlockManager("cpu", engine_config)
+        self.extra_layer_for_Gprf = engine_config.extra_layer_for_cprf
+        self.gpu_block_manager = DeviceBlockManager("cuda:0", engine_config)
+        self.Gpu_block_manager = DeviceBlockManager("cuda:1", engine_config)
     
 
     def _alloc_blocks_for_batch(self, batch: SubBatch) -> tuple[tuple[list[int], list[int]], tuple[list[int], list[int]]]:
@@ -157,8 +157,8 @@ class BlockManager:
         Return new block VIDs to block PIDs mappings on both CPU and GPU. 
         """
         return (
-            self.gpu_block_manager.alloc(batch.all_reqs[:batch.num_prgds], split_point=batch.num_cprfs * self.extra_layer_for_cprf, omit_last=False),
-            self.cpu_block_manager.alloc(batch.all_reqs[batch.num_prgds:], omit_last=False)
+            self.gpu_block_manager.alloc(batch.all_reqs[:batch.num_prgds], split_point=batch.num_Gprfs * self.extra_layer_for_Gprf, omit_last=False),
+            self.Gpu_block_manager.alloc(batch.all_reqs[batch.num_prgds:], omit_last=False)
         )
     
 
@@ -166,7 +166,7 @@ class BlockManager:
         """
         Free the blocks allocated for the specified requests.
         """
-        return self.gpu_block_manager.free(reqs), self.cpu_block_manager.free(reqs)
+        return self.gpu_block_manager.free(reqs), self.Gpu_block_manager.free(reqs)
 
 
     def _initiate_swap(
@@ -185,8 +185,8 @@ class BlockManager:
         if not reqs:
             return [], [], []
         
-        src_block_manager = self.gpu_block_manager if is_swap_out else self.cpu_block_manager
-        dst_block_manager = self.cpu_block_manager if is_swap_out else self.gpu_block_manager
+        src_block_manager = self.gpu_block_manager if is_swap_out else self.Gpu_block_manager
+        dst_block_manager = self.Gpu_block_manager if is_swap_out else self.gpu_block_manager
         src_blk_pids = src_block_manager.free(reqs, int(use_itm))   # free pid block of req in src
         dst_blk_vids, dst_blk_pids = dst_block_manager.alloc(reqs, omit_last=omit_last)
         return src_blk_pids, dst_blk_vids, dst_blk_pids
@@ -250,7 +250,7 @@ class BlockManager:
         # 3. Do cprf swaps, this should happen after the batch allocation
         for batch in batches:
             sp, dv, dp = self._initiate_swap(                                          # gpu -> cpu: cprefill
-                batch.all_reqs[:batch.num_cprfs], is_swap_out=True, 
+                batch.all_reqs[:batch.num_Gprfs], is_swap_out=True, 
                 use_itm=self.engine_config.extra_layer_for_cprf, omit_last=False
             )
             batch.src_blk_ids = sp

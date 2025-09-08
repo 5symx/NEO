@@ -73,7 +73,7 @@ if __name__ == '__main__':
         default=2
     )
     parser.add_argument(
-        "--monitor-performace",
+        "--monitor-performance",
         help="Performance monitoring switch",
         action="store_true",
         default=False
@@ -114,8 +114,8 @@ if __name__ == '__main__':
 
     # 2. Load the prompt and tokenize
     ngpu_prompts = args.num_gpu_requests
-    ncpu_prompts = args.num_cpu_requests
-    nprompts = ncpu_prompts + ngpu_prompts
+    nGpu_prompts = args.num_cpu_requests
+    nprompts = nGpu_prompts + ngpu_prompts
     with open(args.prompt_path, "r") as f:
         prompt = ''.join(f.readlines())
 
@@ -131,28 +131,28 @@ if __name__ == '__main__':
         batch = swiftllm.SubBatch()
         for i in gpu_req_ids:
             reqs[i] = swiftllm.create_request(input_ids, i)
-            batch.add_pref(reqs[i], is_gpu=True)
+            batch.add_pref(reqs[i], is_gpu_local=True)
         gpu_reqs = [reqs[i] for i in gpu_req_ids]
         engine.step([batch])    # block_swap + forward
 
-    if ncpu_prompts:
+    if nGpu_prompts:
         batch = swiftllm.SubBatch()
         for i in range(ngpu_prompts // 2, nprompts // 2):
             reqs[i] = swiftllm.create_request(input_ids, i)
-            batch.add_pref(reqs[i], is_gpu=False)
+            batch.add_pref(reqs[i], is_gpu_local=False)
         engine.step([batch])
 
         batch = swiftllm.SubBatch()
         for i in range(nprompts // 2 + ngpu_prompts // 2, nprompts):
             reqs[i] = swiftllm.create_request(input_ids, i)
-            batch.add_pref(reqs[i], is_gpu=False)
+            batch.add_pref(reqs[i], is_gpu_local=False)
         engine.step([batch])
 
     print("Prefilling phase done")
 
 
     # 4. Run the inference
-    if args.monitor_performace:
+    if args.monitor_performance:
         engine.executor.turn_on_perf_monitor()
     
     for iteration in range(16):
@@ -182,6 +182,6 @@ if __name__ == '__main__':
             output_text = tokenizer.decode(reqs[i].output_token_ids, skip_special_tokens=True)
             print(f"{prompt}|{output_text}")
 
-    if args.monitor_performace:
+    if args.monitor_performance:
         res = engine.executor.turn_off_perf_monitor_and_flush_results()
         print(res)
