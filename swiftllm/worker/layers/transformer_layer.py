@@ -353,6 +353,9 @@ class LlamaTransformerLayer:
             # with torch.cuda.stream(self.Gpu_communication_stream):
             #     o[-batch.num_Gdecs:, :].copy_(oc, non_blocking=True)
             oc = self.swapper.o_Gpu[:batch.num_Gdecs]
+            events.pf_time("lnch_m")
+            self.events[cur_stage].qkvtr_e.synchronize()
+            events.pf_time("cdec_s")
             paged_attention(
                 self.swapper.q_Gpu[:batch.num_Gdecs],
                 self.swapper.k_Gpu[:batch.num_Gdecs],
@@ -362,14 +365,15 @@ class LlamaTransformerLayer:
                 self.swapper.v_swap,
                 self.model_config.softmax_scale,
                 self.swapper.Gpu_block_table,
-                torch.tensor(batch.seq_ids_list[batch.num_prgds:], dtype=torch.int32, device='cuda'),
-                torch.tensor(batch.seq_lens_list[batch.num_prgds], dtype=torch.int32, device='cuda'),
+                torch.tensor(batch.seq_ids_list[batch.num_prgds:], dtype=torch.int32, device='cuda:1'),
+                torch.tensor(batch.seq_lens_list[batch.num_prgds], dtype=torch.int32, device='cuda:1'),
                 # batch.prgd_seq_ids[batch.num_prefs:],
                 # batch.prgd_seq_lens[batch.num_prefs:],
                 cur_layer_id,
                 batch.seq_block_size,
                 batch.num_seq_blocks,
             )
+            events.pf_time("cdec_e")
             with torch.cuda.stream(self.Gpu_communication_stream):
                 o[-batch.num_Gdecs:, :].copy_(oc.to(o.device), non_blocking=True)
 
