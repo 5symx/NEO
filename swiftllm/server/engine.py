@@ -71,6 +71,7 @@ class Engine:
         """
         Perform a step of the engine
         """
+
         forward_args = self.block_manager.prepare(batches, cur_swap_out or [], cur_swap_in or [])
         output_token_ids = self.executor.do_one_iteration(batches, *forward_args)
         self.block_manager.update_and_free(batches, output_token_ids)

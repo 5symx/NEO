@@ -51,6 +51,13 @@ class ModelPerfResult:
     """
 
     # pylint: disable=too-many-instance-attributes
+    fields_to_dump_2 = [
+        "prlr_time",
+        "fstg_time",
+        "mnbd_time",
+        "lstg_time",
+        "polr_time",
+    ]
     fields_to_dump = [
         "avg_linr_time",
         "avg_pref_time",
@@ -91,8 +98,12 @@ class ModelPerfResult:
         self.avg_lnch_time = self.lnch_times.mean(-1)
 
     def __repr__(self):
+        # return json.dumps({
+        #     field: getattr(self, field).tolist() for field in self.fields_to_dump
+        # }, indent=2)
         return json.dumps({
-            field: getattr(self, field).tolist() for field in self.fields_to_dump
+            field: getattr(self, field).tolist() if field in self.fields_to_dump else getattr(self, field)
+            for field in self.fields_to_dump + self.fields_to_dump_2
         }, indent=2)
 
     @staticmethod
@@ -232,6 +243,9 @@ class LlamaModel:
         for batch in batches:
             batch.prgd_seq_ids = torch.tensor(batch.seq_ids_list[:batch.num_prgds], dtype=torch.int32, device='cuda')
             batch.prgd_seq_lens = torch.tensor(batch.seq_lens_list[:batch.num_prgds], dtype=torch.int32, device='cuda')
+            batch.prgd_seq_ids_post = torch.tensor(batch.seq_ids_list[batch.num_prgds:], dtype=torch.int32, device='cuda:1')
+            batch.prgd_seq_lens_post = torch.tensor(batch.seq_lens_list[batch.num_prgds:], dtype=torch.int32, device='cuda:1')
+            
             batch.pref_st_locs_we = torch.tensor(
                 [0] + list(itertools.accumulate(batch.seq_lens_list[:batch.num_prefs])), 
                 dtype=torch.int32, device='cuda'
@@ -345,7 +359,7 @@ class LlamaModel:
 
         Returns the output tokens.
         """
-
+        
         if self.swapper is not None:
             self.swapper.set_block_tables(mappings)
 
@@ -353,7 +367,6 @@ class LlamaModel:
             with torch.cuda.stream(self.Gpu_communication_stream):
                 for layer_id in range(self.model_config.num_layers):
                     self.swapper.swap_blocks(*swappings, is_swap_out, layer_id, layer_id)
-
         return self._forward_batches(batches)   # pre - forward - post
     
 
