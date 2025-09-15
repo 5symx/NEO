@@ -61,14 +61,14 @@ void swap_blocks(
 				k_cache_ptr + start_target_block_id * block_layer_size_in_bytes,
 				k_swap_ptr + start_source_block_id * block_layer_size_in_bytes,
 				cur_segment_size_in_bytes,
-				cudaMemcpyDeviceToDevice, //cudaMemcpyHostToDevice,
+				cudaMemcpyHostToDevice, //cudaMemcpyHostToDevice,
 				stream
 			);
 			cudaMemcpyAsync(
 				v_cache_ptr + start_target_block_id * block_layer_size_in_bytes,
 				v_swap_ptr + start_source_block_id * block_layer_size_in_bytes,
 				cur_segment_size_in_bytes,
-				cudaMemcpyDeviceToDevice, //cudaMemcpyHostToDevice,
+				cudaMemcpyHostToDevice, //cudaMemcpyHostToDevice,
 				stream
 			);
 		} else {
@@ -77,14 +77,14 @@ void swap_blocks(
 				k_swap_ptr + start_target_block_id * block_layer_size_in_bytes,
 				k_cache_ptr + start_source_block_id * block_layer_size_in_bytes,
 				cur_segment_size_in_bytes,
-				cudaMemcpyDeviceToDevice, //cudaMemcpyDeviceToHost,
+				cudaMemcpyDeviceToHost, //cudaMemcpyDeviceToHost,
 				stream
 			);
 			cudaMemcpyAsync(
 				v_swap_ptr + start_target_block_id * block_layer_size_in_bytes,
 				v_cache_ptr + start_source_block_id * block_layer_size_in_bytes,
 				cur_segment_size_in_bytes,
-				cudaMemcpyDeviceToDevice, //cudaMemcpyDeviceToHost,
+				cudaMemcpyDeviceToHost, //cudaMemcpyDeviceToHost,
 				stream
 			);
 		}

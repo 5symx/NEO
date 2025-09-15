@@ -243,8 +243,8 @@ class LlamaModel:
         for batch in batches:
             batch.prgd_seq_ids = torch.tensor(batch.seq_ids_list[:batch.num_prgds], dtype=torch.int32, device='cuda')
             batch.prgd_seq_lens = torch.tensor(batch.seq_lens_list[:batch.num_prgds], dtype=torch.int32, device='cuda')
-            batch.prgd_seq_ids_post = torch.tensor(batch.seq_ids_list[batch.num_prgds:], dtype=torch.int32, device='cuda:1')
-            batch.prgd_seq_lens_post = torch.tensor(batch.seq_lens_list[batch.num_prgds:], dtype=torch.int32, device='cuda:1')
+            batch.prgd_seq_ids_post = torch.tensor(batch.seq_ids_list[batch.num_prgds:], dtype=torch.int32, device='cpu')
+            batch.prgd_seq_lens_post = torch.tensor(batch.seq_lens_list[batch.num_prgds:], dtype=torch.int32, device='cpu')
             
             batch.pref_st_locs_we = torch.tensor(
                 [0] + list(itertools.accumulate(batch.seq_lens_list[:batch.num_prefs])), 
@@ -328,6 +328,7 @@ class LlamaModel:
         if len(batches) == 1:
             embeddings = self._forward_sequential(batches[0], embeddings)   # forward 
         elif len(batches) == 2:
+            # embeddings = self._forward_sequential(batches[0], embeddings)
             embeddings =  self._forward_pipeline(batches, embeddings)
         else:
             raise ValueError("Invalid number of batches")
