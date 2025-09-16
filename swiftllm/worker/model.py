@@ -163,6 +163,13 @@ class LlamaModel:
             torch.ops.load_library(engine_config.library_path)        
         self.Gpu_communication_stream = torch.cuda.Stream()
 
+
+        with torch.cuda.device('cuda:1'):
+            self.G_stream = torch.cuda.default_stream()
+            self.g2G_stream = torch.cuda.Stream()
+            
+
+
         # Load weights
         self.weight = load_weights(
             model_config,
@@ -183,6 +190,10 @@ class LlamaModel:
                 self.weight.layers[layer_id],
                 self.weight.layers[layer_id + 1 - self.model_config.num_layers],
                 self.Gpu_communication_stream,
+                               
+                self.G_stream,
+                self.g2G_stream,
+               
                 layer_id
             )
             for layer_id in range(self.model_config.num_layers)
@@ -200,6 +211,17 @@ class LlamaModel:
         # List of performance results, unused if monitor_performance is False
         self.perf_results = []
         self.events = ModelEvents(engine_config)
+
+        import cupy as cp
+        gpuA = 0
+        gpuB = 1
+        can_access = cp.cuda.runtime.deviceCanAccessPeer(gpuA, gpuB)
+        
+        cp.cuda.Device(gpuB).use()
+        cp.cuda.runtime.deviceEnablePeerAccess(gpuA)
+        cp.cuda.Device(gpuA).use()
+        cp.cuda.runtime.deviceEnablePeerAccess(gpuB)
+    
     
 
     @torch.inference_mode()
@@ -243,8 +265,8 @@ class LlamaModel:
         for batch in batches:
             batch.prgd_seq_ids = torch.tensor(batch.seq_ids_list[:batch.num_prgds], dtype=torch.int32, device='cuda')
             batch.prgd_seq_lens = torch.tensor(batch.seq_lens_list[:batch.num_prgds], dtype=torch.int32, device='cuda')
-            batch.prgd_seq_ids_post = torch.tensor(batch.seq_ids_list[batch.num_prgds:], dtype=torch.int32, device='cpu')
-            batch.prgd_seq_lens_post = torch.tensor(batch.seq_lens_list[batch.num_prgds:], dtype=torch.int32, device='cpu')
+            batch.prgd_seq_ids_post = torch.tensor(batch.seq_ids_list[batch.num_prgds:], dtype=torch.int32, device="cuda:1")
+            batch.prgd_seq_lens_post = torch.tensor(batch.seq_lens_list[batch.num_prgds:], dtype=torch.int32, device="cuda:1")
             
             batch.pref_st_locs_we = torch.tensor(
                 [0] + list(itertools.accumulate(batch.seq_lens_list[:batch.num_prefs])), 
@@ -300,8 +322,13 @@ class LlamaModel:
 
         # In every iteration, attn_out_buf[0] is updated to newer version of batch 0's attention output and 
         # q1, k1, v1 are updated to batch 1's newer version of q, k, v
-        for layer in self.transformer_layers[:-1]:
+        # for layer in self.transformer_layers[:-1]:
+        #     q1, k1, v1 = layer.forward_double(q1, k1, v1, batches)
+
+        for i, layer in enumerate(self.transformer_layers[:-1]):
             q1, k1, v1 = layer.forward_double(q1, k1, v1, batches)
+            if i == 10:
+                break
         self.events.pf_record("mnbd_e")
 
         embeddings = self.transformer_layers[-1].forward_last_stage(q1, k1, v1, batches)
@@ -328,7 +355,6 @@ class LlamaModel:
         if len(batches) == 1:
             embeddings = self._forward_sequential(batches[0], embeddings)   # forward 
         elif len(batches) == 2:
-            # embeddings = self._forward_sequential(batches[0], embeddings)
             embeddings =  self._forward_pipeline(batches, embeddings)
         else:
             raise ValueError("Invalid number of batches")
@@ -365,7 +391,8 @@ class LlamaModel:
             self.swapper.set_block_tables(mappings)
 
         if swappings[0]:
-            with torch.cuda.stream(self.Gpu_communication_stream):
+            # with torch.cuda.stream(self.Gpu_communication_stream):
+            with torch.cuda.stream(self.g2G_stream):
                 for layer_id in range(self.model_config.num_layers):
                     self.swapper.swap_blocks(*swappings, is_swap_out, layer_id, layer_id)
         return self._forward_batches(batches)   # pre - forward - post

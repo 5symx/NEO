@@ -50,17 +50,17 @@ class Swapper:
             engine_config.block_size,
             model_config.head_dim
         )
-        self.k_swap = torch.zeros(kvswap_shape, dtype=torch.float16, device="cpu")#, pin_memory=True)
-        self.v_swap = torch.zeros(kvswap_shape, dtype=torch.float16, device="cpu")#, pin_memory=True)
+        self.k_swap = torch.zeros(kvswap_shape, dtype=torch.float16, device="cuda:1")#, pin_memory=True)
+        self.v_swap = torch.zeros(kvswap_shape, dtype=torch.float16, device="cuda:1")#, pin_memory=True)
 
         # Initialize CPU QKV buffer
         qo_Gpu_shape = (engine_config.max_batch_size, num_q_heads, model_config.head_dim)
         kv_Gpu_shape = (engine_config.max_batch_size, num_kv_heads, model_config.head_dim)
-        self.q_Gpu = torch.zeros(qo_Gpu_shape, dtype=torch.float16, device="cpu")#, pin_memory=True)
-        self.k_Gpu = torch.zeros(kv_Gpu_shape, dtype=torch.float16, device="cpu")#, pin_memory=True)
-        self.v_Gpu = torch.zeros(kv_Gpu_shape, dtype=torch.float16, device="cpu")#, pin_memory=True)
+        self.q_Gpu = torch.zeros(qo_Gpu_shape, dtype=torch.float16, device="cuda:1")#, pin_memory=True)
+        self.k_Gpu = torch.zeros(kv_Gpu_shape, dtype=torch.float16, device="cuda:1")#, pin_memory=True)
+        self.v_Gpu = torch.zeros(kv_Gpu_shape, dtype=torch.float16, device="cuda:1")#, pin_memory=True)
         # We store float32 tensors for the output, but convert them to float16 after copying back to GPU
-        self.o_Gpu = torch.zeros(qo_Gpu_shape, dtype=torch.float32, device="cpu")#, pin_memory=True)
+        self.o_Gpu = torch.zeros(qo_Gpu_shape, dtype=torch.float16, device="cuda:1")#, pin_memory=True)
 
         self.gpu_block_table = torch.zeros(
             (engine_config.max_seqs_in_block_table, engine_config.max_blocks_per_seq),
@@ -70,7 +70,7 @@ class Swapper:
         self.Gpu_block_table = torch.zeros(
             (engine_config.max_seqs_in_block_table, engine_config.max_blocks_per_seq),
             dtype=torch.int32,
-            device="cpu"
+            device="cuda:1"
         )
 
     
@@ -112,4 +112,4 @@ class Swapper:
         if gpu_vids:
             self.gpu_block_table.view(-1)[gpu_vids] = torch.tensor(gpu_pids, dtype=torch.int32, device="cuda")
         if Gpu_vids:
-            self.Gpu_block_table.view(-1)[Gpu_vids] = torch.tensor(Gpu_pids, dtype=torch.int32, device="cpu")
+            self.Gpu_block_table.view(-1)[Gpu_vids] = torch.tensor(Gpu_pids, dtype=torch.int32, device="cuda:1")
