@@ -161,8 +161,8 @@ class LlamaModel:
         model_config.world_size = engine_config.tensor_parallel_degree
 
         # CPU kernel library & stream
-        if engine_config.library_path:
-            torch.ops.load_library(engine_config.library_path)        
+        # if engine_config.library_path:
+        #     torch.ops.load_library(engine_config.library_path)        
         self.Gpu_communication_stream = torch.cuda.Stream()
 
         with cp.cuda.Device(1):
@@ -335,8 +335,8 @@ class LlamaModel:
 
         for i, layer in enumerate(self.transformer_layers[:-1]):
             q1, k1, v1 = layer.forward_double(q1, k1, v1, batches)
-            if i == 10:
-                break
+            # if i == 10:
+            #     break
         self.events.pf_record("mnbd_e")
 
         embeddings = self.transformer_layers[-1].forward_last_stage(q1, k1, v1, batches)

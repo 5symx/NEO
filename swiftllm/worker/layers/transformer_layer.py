@@ -236,13 +236,13 @@ class LlamaTransformerLayer:
                     num_elements = batch.num_Gdecs
                     offset_elements = q.numel() - num_elements
 
-                    qc = cupy.from_dlpack(qc)
-                    kc = cupy.from_dlpack(kc)
-                    vc = cupy.from_dlpack(vc)
+                    qc = cp.from_dlpack(qc)
+                    kc = cp.from_dlpack(kc)
+                    vc = cp.from_dlpack(vc)
 
-                    q = cupy.from_dlpack(q)
-                    k = cupy.from_dlpack(k)
-                    v = cupy.from_dlpack(v)
+                    q = cp.from_dlpack(q)
+                    k = cp.from_dlpack(k)
+                    v = cp.from_dlpack(v)
 
                     # offset_bytes = offset_elements * element_size
                     # copy_bytes = num_elements * element_size
@@ -273,20 +273,20 @@ class LlamaTransformerLayer:
                     # )
 
                     cp.cuda.runtime.memcpyPeerAsync(
-                        qc.data_ptr(), 1,  # destination pointer and device
-                        q.data_ptr() + offset_elements * element_size, 0,  # source pointer and device
+                        qc.data.ptr, 1,  # destination pointer and device
+                        q.data.ptr + offset_elements * element_size, 0,  # source pointer and device
                         num_elements * element_size,
                         self.Gpu_stream_a.ptr
                     )
                     cp.cuda.runtime.memcpyPeerAsync(
-                        kc.data_ptr(), 1,  # destination pointer and device
-                        k.data_ptr() + offset_elements * element_size, 0,  # source pointer and device
+                        kc.data.ptr, 1,  # destination pointer and device
+                        k.data.ptr + offset_elements * element_size, 0,  # source pointer and device
                         num_elements * element_size,
                         self.Gpu_stream_a.ptr
                     )
                     cp.cuda.runtime.memcpyPeerAsync(
-                        vc.data_ptr(), 1,  # destination pointer and device
-                        v.data_ptr() + offset_elements * element_size, 0,  # source pointer and device
+                        vc.data.ptr, 1,  # destination pointer and device
+                        v.data.ptr + offset_elements * element_size, 0,  # source pointer and device
                         num_elements * element_size,
                         self.Gpu_stream_a.ptr
                     )

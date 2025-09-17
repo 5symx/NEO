@@ -28,7 +28,7 @@ class EngineConfig:
     max_tokens_in_batch: int
 
     # External paths
-    library_path: str
+    # library_path: str
     profile_result_path: str
 
     # Switches

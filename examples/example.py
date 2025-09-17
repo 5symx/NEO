@@ -96,7 +96,7 @@ if __name__ == '__main__':
         max_batch_size = 10,
         max_tokens_in_batch = 600,
 
-        library_path=f"{repo_dir}/pacpu/build/libpacpu-{args.model_name}-tp{args.tp_degree}.so",
+        # library_path=f"{repo_dir}/pacpu/build/libpacpu-{args.model_name}-tp{args.tp_degree}.so",
         profile_result_path=args.profile_result_path,
 
         extra_layer_for_cprf=True,
