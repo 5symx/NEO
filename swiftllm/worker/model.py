@@ -23,6 +23,8 @@ from .layers.pre_layer import LlamaPreLayer
 from .layers.transformer_layer import LlamaTransformerLayer
 from .layers.post_layer import LlamaPostLayer
 
+import cupy as cp
+
 class ModelEvents:
     """
     ModelEvents - A class that represents the GPU events of a forward pass of a model.
@@ -163,10 +165,14 @@ class LlamaModel:
             torch.ops.load_library(engine_config.library_path)        
         self.Gpu_communication_stream = torch.cuda.Stream()
 
+        with cp.cuda.Device(1):
+            self.G_stream_a = cp.cuda.Stream(non_blocking=True)
+            self.G_stream_b = cp.cuda.Stream(non_blocking=True)
 
-        with torch.cuda.device('cuda:1'):
-            self.G_stream = torch.cuda.default_stream()
-            self.g2G_stream = torch.cuda.Stream()
+
+        # with torch.cuda.device('cuda:1'):
+        #     self.G_stream = torch.cuda.default_stream()
+        #     self.g2G_stream = torch.cuda.Stream()
             
 
 
@@ -190,9 +196,11 @@ class LlamaModel:
                 self.weight.layers[layer_id],
                 self.weight.layers[layer_id + 1 - self.model_config.num_layers],
                 self.Gpu_communication_stream,
+                self.G_stream_a,
+                self.G_stream_b,
                                
-                self.G_stream,
-                self.g2G_stream,
+                # self.G_stream,
+                # self.g2G_stream,
                
                 layer_id
             )
@@ -212,15 +220,15 @@ class LlamaModel:
         self.perf_results = []
         self.events = ModelEvents(engine_config)
 
-        import cupy as cp
-        gpuA = 0
-        gpuB = 1
-        can_access = cp.cuda.runtime.deviceCanAccessPeer(gpuA, gpuB)
+        # import cupy as cp
+        # gpuA = 0
+        # gpuB = 1
+        # can_access = cp.cuda.runtime.deviceCanAccessPeer(gpuA, gpuB)
         
-        cp.cuda.Device(gpuB).use()
-        cp.cuda.runtime.deviceEnablePeerAccess(gpuA)
-        cp.cuda.Device(gpuA).use()
-        cp.cuda.runtime.deviceEnablePeerAccess(gpuB)
+        # cp.cuda.Device(gpuB).use()
+        # cp.cuda.runtime.deviceEnablePeerAccess(gpuA)
+        # cp.cuda.Device(gpuA).use()
+        # cp.cuda.runtime.deviceEnablePeerAccess(gpuB)
     
     
 

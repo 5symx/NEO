@@ -116,9 +116,11 @@ class LlamaTransformerLayer:
         weight: LlamaTransformerLayerWeight,
         next_layer_weight: LlamaTransformerLayerWeight | None,
         Gpu_communication_stream: torch.cuda.Stream,
+        G_stream_a,
+        G_stream_b,
         
-        G_stream: torch.cuda.Stream,
-        g2G_stream: torch.cuda.Stream,
+        # G_stream: torch.cuda.Stream,
+        # g2G_stream: torch.cuda.Stream,
 
         layer_id: int
 
@@ -137,15 +139,26 @@ class LlamaTransformerLayer:
 
 
        
-        self.G_stream = G_stream
-        self.g2G_stream = g2G_stream
+        # self.G_stream = G_stream
+        # self.g2G_stream = g2G_stream
 
-        self.g_event = torch.cuda.Event()
-        self.g_o_event = torch.cuda.Event()
-        with torch.cuda.device('cuda:1'):
-            self.g2G_event = torch.cuda.Event()
-            self.G_event = torch.cuda.Event()
-            self.g2G_block_event = torch.cuda.Event()
+        # self.g_event = torch.cuda.Event()
+        # self.g_o_event = torch.cuda.Event()
+        # with torch.cuda.device('cuda:1'):
+        #     self.g2G_event = torch.cuda.Event()
+        #     self.G_event = torch.cuda.Event()
+        #     self.g2G_block_event = torch.cuda.Event()
+
+        # cp.cuda.Device(1).use()
+        # self.copy_stream = cp.cuda.Stream(non_blocking=True)
+        # self.g_cp_event = cp.cuda.Event()
+        # self.copy_stream_2 = cp.cuda.Stream(non_blocking=True)
+        # self.g_swap_event = cp.cuda.Event()
+        # cp.cuda.Device(0).use()
+        self.gpu_stream_b = Gpu_communication_stream
+        self.gpu_stream_a = torch.cuda.default_stream()
+        self.Gpu_stream_a = G_stream_a
+        self.Gpu_stream_b = G_stream_b
 
         
         
@@ -162,44 +175,30 @@ class LlamaTransformerLayer:
         """
         Do communication after necessary computation
         """
+        self.gpu_stream_a.synchronize()
         # self.Gpu_communication_stream.wait_stream(torch.cuda.default_stream())
 
-        # torch.cuda.synchronize(torch.device('cuda:1'))
+        # start = time.perf_counter()
+        # self.Gpu_communication_stream.wait_stream(torch.cuda.default_stream())
+        # end = time.perf_counter()
 
-        start = time.perf_counter()
-        self.Gpu_communication_stream.wait_stream(torch.cuda.default_stream())
-        end = time.perf_counter()
+        # print(f"wait compute Synchronization took {end - start:.6f} seconds")
 
-        print(f"wait compute Synchronization took {end - start:.6f} seconds")
-
-        
-        # event = torch.cuda.Event()
-        # event.synchronize()
 
     def _compute_wait_comm_2(self):
-        torch.cuda.default_stream().wait_stream(self.Gpu_communication_stream)
+        torch.cuda.default_stream().wait_stream(self.gpu_stream_b)
+
     
     def _compute_wait_comm_swap(self):
-        self.g2G_block_event.wait(torch.cuda.default_stream())
+        self.Gpu_stream_b.synchronize()
+        # self.g_swap_event.synchronize()
+        # self.g2G_block_event.wait(torch.cuda.default_stream())
 
     def _compute_wait_comm(self):
         """
         Do computation after necessary communication
         """
         self.g_event.wait(torch.cuda.default_stream())
-        # self.g2G_block_event.wait(torch.cuda.default_stream())
-        # torch.cuda.default_stream().wait_stream(self.Gpu_communication_stream)
-
-
-
-        # start = time.perf_counter()
-        # self.g_event.synchronize()
-        # end = time.perf_counter()
-
-        # print(f"wait commm Synchronization took {end - start:.6f} seconds")
-
-
-
 
 
     def _maybe_allreduce(self, x: torch.Tensor):
@@ -218,24 +217,16 @@ class LlamaTransformerLayer:
         """
         Initiate transfer of QKV to CPU buffers
         """
-        # self._comm_wait_compute() # pre proj for cuda:0
+        self._comm_wait_compute() # pre proj for cuda:0
 
         torch.cuda.nvtx.range_push("transfer_kv")
 
         if batch.num_Gdecs > 0:
-            # with torch.cuda.device('cuda:1'):
-            #     self.g_event.wait(self.g2G_stream)
-            
-            
+            # with self.Gpu_communication_stream:
 
-            with torch.cuda.device('cuda:1'), torch.cuda.stream(self.g2G_stream):
-                self.g_event.wait(self.g2G_stream)
-
-                cp.cuda.Device(1).use()
-                stream = cp.cuda.Stream(non_blocking=True)
-                self.g_cp_event = cp.cuda.Event()
-                with stream:
-                    
+                # self.g_cp_event = cp.cuda.Event()
+            with cp.cuda.Device(1):
+                with self.Gpu_stream_a:
 
                     qc = self.swapper.q_Gpu[:batch.num_Gdecs]
                     kc = self.swapper.k_Gpu[:batch.num_Gdecs]
@@ -244,6 +235,15 @@ class LlamaTransformerLayer:
                     element_size = 2  # float16 = 2 bytes
                     num_elements = batch.num_Gdecs
                     offset_elements = q.numel() - num_elements
+
+                    qc = cupy.from_dlpack(qc)
+                    kc = cupy.from_dlpack(kc)
+                    vc = cupy.from_dlpack(vc)
+
+                    q = cupy.from_dlpack(q)
+                    k = cupy.from_dlpack(k)
+                    v = cupy.from_dlpack(v)
+
                     # offset_bytes = offset_elements * element_size
                     # copy_bytes = num_elements * element_size
 
@@ -276,33 +276,41 @@ class LlamaTransformerLayer:
                         qc.data_ptr(), 1,  # destination pointer and device
                         q.data_ptr() + offset_elements * element_size, 0,  # source pointer and device
                         num_elements * element_size,
-                        stream.ptr
+                        self.Gpu_stream_a.ptr
                     )
                     cp.cuda.runtime.memcpyPeerAsync(
                         kc.data_ptr(), 1,  # destination pointer and device
                         k.data_ptr() + offset_elements * element_size, 0,  # source pointer and device
                         num_elements * element_size,
-                        stream.ptr
+                        self.Gpu_stream_a.ptr
                     )
                     cp.cuda.runtime.memcpyPeerAsync(
                         vc.data_ptr(), 1,  # destination pointer and device
                         v.data_ptr() + offset_elements * element_size, 0,  # source pointer and device
                         num_elements * element_size,
-                        stream.ptr
+                        self.Gpu_stream_a.ptr
                     )
-                    self.g_cp_event.record(stream)
+
+                    qc = torch.from_dlpack(qc)
+                    kc = torch.from_dlpack(kc)
+                    vc = torch.from_dlpack(vc)
+
+                    q = torch.from_dlpack(q)
+                    k = torch.from_dlpack(k)
+                    v = torch.from_dlpack(v)
+
+                    # self.g_cp_event.record(self.copy_stream)
 
 
-                # qc.copy_(q[-batch.num_Gdecs:], non_blocking=True)
-                # kc.copy_(k[-batch.num_Gdecs:], non_blocking=True)
-                # vc.copy_(v[-batch.num_Gdecs:], non_blocking=True)
+                        # qc.copy_(q[-batch.num_Gdecs:], non_blocking=True)
+                        # kc.copy_(k[-batch.num_Gdecs:], non_blocking=True)
+                        # vc.copy_(v[-batch.num_Gdecs:], non_blocking=True)
 
 
-                # qc.copy_(q[-batch.num_Gdecs:].to(qc.device))# , non_blocking=True) # update .to(device)
-                # kc.copy_(k[-batch.num_Gdecs:].to(kc.device))#, non_blocking=True)
-                # vc.copy_(v[-batch.num_Gdecs:].to(vc.device))#, non_blocking=True)
-                # self.events[cur_stage].qkvtr_e.record()
-                self.g2G_event.record(self.g2G_stream)
+                        # qc.copy_(q[-batch.num_Gdecs:].to(qc.device))# , non_blocking=True) # update .to(device)
+                        # kc.copy_(k[-batch.num_Gdecs:].to(kc.device))#, non_blocking=True)
+                        # vc.copy_(v[-batch.num_Gdecs:].to(vc.device))#, non_blocking=True)
+                        # self.events[cur_stage].qkvtr_e.record()
         torch.cuda.nvtx.range_pop()
 
 
@@ -316,17 +324,21 @@ class LlamaTransformerLayer:
         torch.cuda.nvtx.range_push("_swap_out_blocks")
         if batch.num_Gprfs > 0:
             # with torch.cuda.device("cuda:1"):
-            self.g_o_event.wait(self.g2G_stream)
+            # self.g_o_event.wait(self.g2G_stream)
             #     with torch.cuda.stream(self.g2G_stream):
-            with torch.cuda.stream(self.g2G_stream):
-                self.swapper.swap_blocks(
-                    batch.src_blk_ids, 
-                    batch.dst_blk_ids, 
-                    is_swap_out=True, 
-                    gpu_layer=self.model_config.num_layers if self.engine_config.extra_layer_for_cprf else self.layer_id,
-                    Gpu_layer=self.layer_id
-                )
-                self.g2G_block_event.record()
+            # with torch.cuda.stream(self.g2G_stream):
+
+            with cp.cuda.Device(1):
+                with self.Gpu_stream_b:
+                    self.swapper.swap_blocks(
+                        batch.src_blk_ids, 
+                        batch.dst_blk_ids, 
+                        is_swap_out=True, 
+                        gpu_layer=self.model_config.num_layers if self.engine_config.extra_layer_for_cprf else self.layer_id,
+                        Gpu_layer=self.layer_id
+                    )
+                # self.g_swap_event.record(self.copy_stream_2)
+            # self.g2G_block_event.record()
         torch.cuda.nvtx.range_pop()
 
 
@@ -387,7 +399,7 @@ class LlamaTransformerLayer:
                 batch.num_Gprfs,
                 batch.max_pref_toks
             )
-        self.g_event.record(torch.cuda.default_stream(device='cuda:1'))
+        # self.g_event.record(torch.cuda.default_stream(device='cuda:1'))
         torch.cuda.nvtx.range_pop()
         return q, k, v
 
@@ -498,53 +510,57 @@ class LlamaTransformerLayer:
             #     self.g2G_event.wait(self.G_stream)
 
 
-            self.g_cp_event.synchronize()
+            # self.g_cp_event.synchronize()
 
-            with torch.cuda.device('cuda:1'), torch.cuda.stream(self.G_stream):
-                self.g2G_event.wait(self.G_stream)
+            # with torch.cuda.device('cuda:1'), torch.cuda.stream(self.G_stream):
+                # self.g2G_event.wait(self.G_stream)
+            with cp.cuda.Device(1):
+                with self.Gpu_stream_a:
 
-                # cp.cuda.Device(1).use()
-                # other_stream = cp.cuda.Stream(non_blocking=True)
-                # other_stream.wait_event(self.g_cp_event)
+                    # cp.cuda.Device(1).use()
+                    # other_stream = cp.cuda.Stream(non_blocking=True)
+                    # other_stream.wait_event(self.g_cp_event)
 
-                # self.g_pa_event = cp.cuda.Event()
-                # with other_stream:
+                    # self.g_pa_event = cp.cuda.Event()
+                    # with other_stream:
 
-                oc = self.swapper.o_Gpu[:batch.num_Gdecs]
-                events.pf_time("lnch_m")
-                # self.g2G_stream.wait_event(self.g2G_event)
-                # self.events[cur_stage].qkvtr_e.synchronize()
-                events.pf_time("cdec_s")
-                paged_attention(
-                    self.swapper.q_Gpu[:batch.num_Gdecs],
-                    self.swapper.k_Gpu[:batch.num_Gdecs],
-                    self.swapper.v_Gpu[:batch.num_Gdecs],
-                    oc,
-                    self.swapper.k_swap, 
-                    self.swapper.v_swap,
-                    self.model_config.softmax_scale,
-                    self.swapper.Gpu_block_table,
-                    # torch.tensor(batch.seq_ids_list[batch.num_prgds:], dtype=torch.int32, device="cuda:1"),
-                    # torch.tensor(batch.seq_lens_list[batch.num_prgds], dtype=torch.int32, device="cuda:1"),
-                    batch.prgd_seq_ids_post,
-                    batch.prgd_seq_lens_post,
-                    # batch.prgd_seq_ids[batch.num_prefs:],
-                    # batch.prgd_seq_lens[batch.num_prefs:],
-                    cur_layer_id,
-                    batch.seq_block_size,
-                    batch.num_seq_blocks,
-                )
-                # self.g_pa_event.record(other_stream)
-                events.pf_time("cdec_e")
-                self.G_event.record(self.G_stream)
+                    oc = self.swapper.o_Gpu[:batch.num_Gdecs]
+                    events.pf_time("lnch_m")
+                    # self.g2G_stream.wait_event(self.g2G_event)
+                    # self.events[cur_stage].qkvtr_e.synchronize()
+                    events.pf_time("cdec_s")
+                    paged_attention(
+                        self.swapper.q_Gpu[:batch.num_Gdecs],
+                        self.swapper.k_Gpu[:batch.num_Gdecs],
+                        self.swapper.v_Gpu[:batch.num_Gdecs],
+                        oc,
+                        self.swapper.k_swap, 
+                        self.swapper.v_swap,
+                        self.model_config.softmax_scale,
+                        self.swapper.Gpu_block_table,
+                        # torch.tensor(batch.seq_ids_list[batch.num_prgds:], dtype=torch.int32, device="cuda:1"),
+                        # torch.tensor(batch.seq_lens_list[batch.num_prgds], dtype=torch.int32, device="cuda:1"),
+                        batch.prgd_seq_ids_post,
+                        batch.prgd_seq_lens_post,
+                        # batch.prgd_seq_ids[batch.num_prefs:],
+                        # batch.prgd_seq_lens[batch.num_prefs:],
+                        cur_layer_id,
+                        batch.seq_block_size,
+                        batch.num_seq_blocks,
+                    )
+                    # self.g_pa_event.record(other_stream)
+                    events.pf_time("cdec_e")
+                    # self.G_event.record(self.G_stream)
+                    # with torch.cuda.stream(self.Gpu_communication_stream):
+                # self.G_event.wait(self.Gpu_communication_stream)
                 # with torch.cuda.stream(self.Gpu_communication_stream):
-            self.G_event.wait(self.Gpu_communication_stream)
-            with torch.cuda.stream(self.Gpu_communication_stream):
-                # self.g_pa_event.synchronize()
+                    # self.g_pa_event.synchronize()
 
-                # self.g2G_stream.wait_event(self.G_event)
+                    # self.g2G_stream.wait_event(self.G_event)
+                self.Gpu_stream_a.synchronize()
+            with self.gpu_stream_b:
                 o[-batch.num_Gdecs:, :].copy_(oc, non_blocking=True)
-                self.g_o_event.record()
+                # self.g_o_event.record()
         else:
             events.pf_time_nocpu()
         self._compute_wait_comm_2() # Wait for CPU decoding to finish
