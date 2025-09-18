@@ -224,25 +224,33 @@ class LlamaTransformerLayer:
         if batch.num_Gdecs > 0:
             # with self.Gpu_communication_stream:
 
-                # self.g_cp_event = cp.cuda.Event()
+            # self.g_cp_event = cp.cuda.Event()
+            qc = self.swapper.q_Gpu[:batch.num_Gdecs]
+            kc = self.swapper.k_Gpu[:batch.num_Gdecs]
+            vc = self.swapper.v_Gpu[:batch.num_Gdecs]
+
+            element_size = 2  # float16 = 2 bytes
+            num_elements = batch.num_Gdecs
+            offset_elements = q.numel() - num_elements
+
+
+            qc = cp.from_dlpack(qc)
+            kc = cp.from_dlpack(kc)
+            vc = cp.from_dlpack(vc)
+
+            q = cp.from_dlpack(q)
+            k = cp.from_dlpack(k)
+            v = cp.from_dlpack(v)
+
             with cp.cuda.Device(1):
                 with self.Gpu_stream_a:
 
-                    qc = self.swapper.q_Gpu[:batch.num_Gdecs]
-                    kc = self.swapper.k_Gpu[:batch.num_Gdecs]
-                    vc = self.swapper.v_Gpu[:batch.num_Gdecs]
+                    
 
-                    element_size = 2  # float16 = 2 bytes
-                    num_elements = batch.num_Gdecs
-                    offset_elements = q.numel() - num_elements
+                    
+                    
 
-                    qc = cp.from_dlpack(qc)
-                    kc = cp.from_dlpack(kc)
-                    vc = cp.from_dlpack(vc)
-
-                    q = cp.from_dlpack(q)
-                    k = cp.from_dlpack(k)
-                    v = cp.from_dlpack(v)
+                    
 
                     # offset_bytes = offset_elements * element_size
                     # copy_bytes = num_elements * element_size
@@ -291,13 +299,7 @@ class LlamaTransformerLayer:
                         self.Gpu_stream_a.ptr
                     )
 
-                    qc = torch.from_dlpack(qc)
-                    kc = torch.from_dlpack(kc)
-                    vc = torch.from_dlpack(vc)
-
-                    q = torch.from_dlpack(q)
-                    k = torch.from_dlpack(k)
-                    v = torch.from_dlpack(v)
+                   
 
                     # self.g_cp_event.record(self.copy_stream)
 
@@ -311,6 +313,14 @@ class LlamaTransformerLayer:
                         # kc.copy_(k[-batch.num_Gdecs:].to(kc.device))#, non_blocking=True)
                         # vc.copy_(v[-batch.num_Gdecs:].to(vc.device))#, non_blocking=True)
                         # self.events[cur_stage].qkvtr_e.record()
+            qc = torch.from_dlpack(qc)
+            kc = torch.from_dlpack(kc)
+            vc = torch.from_dlpack(vc)
+
+            q = torch.from_dlpack(q)
+            k = torch.from_dlpack(k)
+            v = torch.from_dlpack(v)
+
         torch.cuda.nvtx.range_pop()
 
 
@@ -514,6 +524,10 @@ class LlamaTransformerLayer:
 
             # with torch.cuda.device('cuda:1'), torch.cuda.stream(self.G_stream):
                 # self.g2G_event.wait(self.G_stream)
+            # stream_ptr = self.Gpu_stream_a.ptr
+            # torch_stream = torch.cuda.ExternalStream(stream_ptr)
+            # with torch.cuda.device(1), torch.cuda.stream(torch_stream):
+
             with cp.cuda.Device(1):
                 with self.Gpu_stream_a:
 
@@ -550,6 +564,7 @@ class LlamaTransformerLayer:
                     )
                     # self.g_pa_event.record(other_stream)
                     events.pf_time("cdec_e")
+
                     # self.G_event.record(self.G_stream)
                     # with torch.cuda.stream(self.Gpu_communication_stream):
                 # self.G_event.wait(self.Gpu_communication_stream)
@@ -557,10 +572,45 @@ class LlamaTransformerLayer:
                     # self.g_pa_event.synchronize()
 
                     # self.g2G_stream.wait_event(self.G_event)
-                self.Gpu_stream_a.synchronize()
-            with self.gpu_stream_b:
+            self.Gpu_stream_a.synchronize()
+
+            with self.gpu_stream_b:                
                 o[-batch.num_Gdecs:, :].copy_(oc, non_blocking=True)
                 # self.g_o_event.record()
+
+            # element_size = 2  # float16 = 2 bytes
+            # num_rows = batch.num_Gdecs
+            # cols = o.shape[1]
+            # offset_elements = (o.shape[0] - num_rows) * cols
+            # num_elements = num_rows * cols
+
+            # offset_bytes = offset_elements * element_size
+            # copy_bytes = num_elements * element_size
+
+            # num_rows = batch.num_Gdecs
+            # cols = o.shape[1]
+            # element_size = o.element_size()  # 2 for float16
+
+            # offset_elements = (o.shape[0] - num_rows) * cols
+            # num_elements = num_rows * cols
+            # offset_bytes = offset_elements * element_size
+            # copy_bytes = num_elements * element_size
+
+            # dst_ptr = o.data_ptr() + offset_bytes
+            # src_ptr = oc.data_ptr()
+            # cupy_stream = cp.cuda.ExternalStream(self.gpu_stream_b.cuda_stream)
+
+            # with cp.cuda.Device(0):
+            #     with cupy_stream:
+
+            #         cp.cuda.runtime.memcpyPeerAsync(
+            #             dst_ptr, 1,         # destination pointer and device
+            #             src_ptr, 0,         # source pointer and device
+            #             copy_bytes,
+            #             cupy_stream.ptr  # CuPy stream pointer
+            #         )
+
+
         else:
             events.pf_time_nocpu()
         self._compute_wait_comm_2() # Wait for CPU decoding to finish
