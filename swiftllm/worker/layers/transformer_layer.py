@@ -116,6 +116,7 @@ class LlamaTransformerLayer:
         next_layer_weight: LlamaTransformerLayerWeight | None,
         Gpu_communication_stream: torch.cuda.Stream,
         g2G_stream: torch.cuda.Stream,
+        g2G_swap_stream: torch.cuda.Stream,
         layer_id: int
     ):
         self.model_config = model_config
@@ -133,9 +134,11 @@ class LlamaTransformerLayer:
         self.g_event = torch.cuda.Event()
         self.g_pre_event = torch.cuda.Event()
         self.g2G_stream = g2G_stream
+        self.g2G_swap_stream = g2G_swap_stream
+
         with torch.cuda.device('cuda:1'):
             
-            self.g2G_event = torch.cuda.Event()
+            # self.g2G_event = torch.cuda.Event()
             self.G_event = torch.cuda.Event()
             self.g2G_block_event = torch.cuda.Event()
 
@@ -165,7 +168,8 @@ class LlamaTransformerLayer:
         
         # event = torch.cuda.Event()
         # event.synchronize()
-
+    def _compute_wait_comm_swap(self):
+        self.g2G_block_event.synchronize()
 
     def _compute_wait_comm(self):
         """
@@ -177,7 +181,7 @@ class LlamaTransformerLayer:
         # torch.cuda.synchronize(torch.device('cuda:1'))
 
         # start = time.perf_counter()
-        self.g_event.synchronize()
+        
         # torch.cuda.default_stream().wait_stream(self.Gpu_communication_stream)
         
         # end = time.perf_counter()
@@ -185,8 +189,10 @@ class LlamaTransformerLayer:
         # print(f"wait commm Synchronization took {end - start:.6f} seconds")
 
         # start = time.perf_counter()
+
+        self.g_event.synchronize()
         with torch.cuda.device('cuda:1'):
-            self.g2G_event.synchronize()
+            # self.g2G_event.synchronize()
             self.G_event.synchronize()
             self.g2G_block_event.synchronize()
         
@@ -219,11 +225,14 @@ class LlamaTransformerLayer:
                 qc = self.swapper.q_Gpu[:batch.num_Gdecs]
                 kc = self.swapper.k_Gpu[:batch.num_Gdecs]
                 vc = self.swapper.v_Gpu[:batch.num_Gdecs]
-                qc.copy_(q[-batch.num_Gdecs:].to(qc.device))# , non_blocking=True) # update .to(device)
-                kc.copy_(k[-batch.num_Gdecs:].to(kc.device))#, non_blocking=True)
-                vc.copy_(v[-batch.num_Gdecs:].to(vc.device))#, non_blocking=True)
+
+                
+
+                qc.copy_(q[-batch.num_Gdecs:].to(qc.device), non_blocking=True) # update .to(device)
+                kc.copy_(k[-batch.num_Gdecs:].to(kc.device), non_blocking=True)
+                vc.copy_(v[-batch.num_Gdecs:].to(vc.device), non_blocking=True)
                 # self.events[cur_stage].qkvtr_e.record()
-                self.g2G_event.record()
+                # self.g2G_event.record()
             
 
 
@@ -236,7 +245,7 @@ class LlamaTransformerLayer:
         """
         if batch.num_Gprfs > 0:
             # with torch.cuda.device('cuda:1'):
-            with torch.cuda.stream(self.g2G_stream):
+            with torch.cuda.stream(self.g2G_swap_stream):
             # with torch.cuda.stream(self.Gpu_communication_stream):
                 self.swapper.swap_blocks(
                     batch.src_blk_ids, 
@@ -288,7 +297,7 @@ class LlamaTransformerLayer:
             gpu_layer = (self.layer_id + layer_off) % self.model_config.num_layers
             itm_layer = self.model_config.num_layers if self.engine_config.extra_layer_for_cprf else gpu_layer
             # NOTE: if swapping is too slow, there's risk that we writes to what's being swapped out
-            self._compute_wait_comm()
+            self._compute_wait_comm_swap()
             store_kvcache(
                 k,
                 v,
@@ -409,7 +418,7 @@ class LlamaTransformerLayer:
             with torch.cuda.device('cuda:1'), torch.cuda.stream(self.g2G_stream):
                 oc = self.swapper.o_Gpu[:batch.num_Gdecs]
                 events.pf_time("lnch_m")
-                self.g2G_stream.wait_event(self.g2G_event)
+                # self.g2G_stream.wait_event(self.g2G_event)
                 # self.events[cur_stage].qkvtr_e.synchronize()
                 events.pf_time("cdec_s")
                 paged_attention(
@@ -435,12 +444,13 @@ class LlamaTransformerLayer:
                 self.G_event.record()
                 # with torch.cuda.stream(self.Gpu_communication_stream):
             with torch.cuda.stream(self.Gpu_communication_stream):
-                self.g2G_stream.wait_event(self.G_event)
+                self.Gpu_communication_stream.wait_event(self.G_event)
                 o[-batch.num_Gdecs:, :].copy_(oc.to(o.device), non_blocking=True)
                 self.g_event.record()
         else:
             events.pf_time_nocpu()
-        self._compute_wait_comm() # Wait for CPU decoding to finish
+        # self._compute_wait_comm() # Wait for CPU decoding to finish
+        self.g_event.synchronize()
 
 
     def _postproj(
@@ -549,7 +559,7 @@ class LlamaTransformerLayer:
         """
         embeddings = torch.split(embeddings, [batch.iter_width for batch in batches])
         q0, k0, v0 = self._preproj(embeddings[0], batches[0], layer_off=1)
-        self._compute_wait_comm() # Here we must make sure all swaps are done before the first attention
+        self._compute_wait_comm_swap() # Here we must make sure all swaps are done before the first attention
 
         self.events[1].pf_record("stage_s")
         self.events[1].pf_time("lnch_s")

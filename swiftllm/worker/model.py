@@ -165,6 +165,7 @@ class LlamaModel:
 
         with torch.cuda.device('cuda:1'):
             self.g2G_stream = torch.cuda.Stream()
+            self.g2G_swap_stream = torch.cuda.Stream()
 
         # Load weights
         self.weight = load_weights(
@@ -187,6 +188,7 @@ class LlamaModel:
                 self.weight.layers[layer_id + 1 - self.model_config.num_layers],
                 self.Gpu_communication_stream,
                 self.g2G_stream,
+                self.g2G_swap_stream,
                 layer_id
             )
             for layer_id in range(self.model_config.num_layers)
