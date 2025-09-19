@@ -131,6 +131,7 @@ class LlamaTransformerLayer:
         self.swapper = None
         
         self.g_event = torch.cuda.Event()
+        self.g_pre_event = torch.cuda.Event()
         self.g2G_stream = g2G_stream
         with torch.cuda.device('cuda:1'):
             
@@ -150,9 +151,10 @@ class LlamaTransformerLayer:
         """
         Do communication after necessary computation
         """
-        # self.Gpu_communication_stream.wait_stream(torch.cuda.default_stream())
+        # torch.cuda.default_stream().synchronize()
+        self.g_pre_event.synchronize()
 
-        torch.cuda.synchronize(torch.device('cuda:0'))
+        # torch.cuda.synchronize(torch.device('cuda:0'))
 
         # start = time.perf_counter()
         # self.Gpu_communication_stream.wait_stream(torch.cuda.default_stream())
@@ -222,6 +224,7 @@ class LlamaTransformerLayer:
                 vc.copy_(v[-batch.num_Gdecs:].to(vc.device))#, non_blocking=True)
                 # self.events[cur_stage].qkvtr_e.record()
                 self.g2G_event.record()
+            
 
 
     def _swap_out_blocks(
@@ -300,6 +303,8 @@ class LlamaTransformerLayer:
                 batch.num_Gprfs,
                 batch.max_pref_toks
             )
+
+        self.g_pre_event.record()
 
         return q, k, v
 

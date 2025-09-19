@@ -57,35 +57,67 @@ void swap_blocks(
 
 		if (!is_swap_out) {
 			// Copy from CPU to GPU
-			cudaMemcpyAsync(
-				k_cache_ptr + start_target_block_id * block_layer_size_in_bytes,
-				k_swap_ptr + start_source_block_id * block_layer_size_in_bytes,
-				cur_segment_size_in_bytes,
-				cudaMemcpyDeviceToDevice, //cudaMemcpyHostToDevice,
-				stream
+			// cudaMemcpyAsync(
+			// 	k_cache_ptr + start_target_block_id * block_layer_size_in_bytes,
+			// 	k_swap_ptr + start_source_block_id * block_layer_size_in_bytes,
+			// 	cur_segment_size_in_bytes,
+			// 	cudaMemcpyDeviceToDevice, //cudaMemcpyHostToDevice,
+			// 	stream
+			// );
+			// cudaMemcpyAsync(
+			// 	v_cache_ptr + start_target_block_id * block_layer_size_in_bytes,
+			// 	v_swap_ptr + start_source_block_id * block_layer_size_in_bytes,
+			// 	cur_segment_size_in_bytes,
+			// 	cudaMemcpyDeviceToDevice, //cudaMemcpyHostToDevice,
+			// 	stream
+			// );
+			cudaMemcpyPeerAsync(
+				k_cache_ptr + start_target_block_id * block_layer_size_in_bytes, // destination pointer
+				0,                                                      // destination device ID
+				k_swap_ptr + start_source_block_id * block_layer_size_in_bytes, // source pointer
+				1,                                                       // source device ID
+				cur_segment_size_in_bytes,                                       // size in bytes
+				stream                                                           // CUDA stream
 			);
-			cudaMemcpyAsync(
-				v_cache_ptr + start_target_block_id * block_layer_size_in_bytes,
-				v_swap_ptr + start_source_block_id * block_layer_size_in_bytes,
-				cur_segment_size_in_bytes,
-				cudaMemcpyDeviceToDevice, //cudaMemcpyHostToDevice,
-				stream
+			cudaMemcpyPeerAsync(
+				v_cache_ptr + start_target_block_id * block_layer_size_in_bytes, // destination pointer
+				0,                                                      // destination device ID
+				v_swap_ptr + start_source_block_id * block_layer_size_in_bytes, // source pointer
+				1,                                                       // source device ID
+				cur_segment_size_in_bytes,                                       // size in bytes
+				stream                                                           // CUDA stream
 			);
 		} else {
 			// Copy from GPU to CPU
-			cudaMemcpyAsync(
-				k_swap_ptr + start_target_block_id * block_layer_size_in_bytes,
-				k_cache_ptr + start_source_block_id * block_layer_size_in_bytes,
-				cur_segment_size_in_bytes,
-				cudaMemcpyDeviceToDevice, //cudaMemcpyDeviceToHost,
-				stream
+			// cudaMemcpyAsync(
+			// 	k_swap_ptr + start_target_block_id * block_layer_size_in_bytes,
+			// 	k_cache_ptr + start_source_block_id * block_layer_size_in_bytes,
+			// 	cur_segment_size_in_bytes,
+			// 	cudaMemcpyDeviceToDevice, //cudaMemcpyDeviceToHost,
+			// 	stream
+			// );
+			// cudaMemcpyAsync(
+			// 	v_swap_ptr + start_target_block_id * block_layer_size_in_bytes,
+			// 	v_cache_ptr + start_source_block_id * block_layer_size_in_bytes,
+			// 	cur_segment_size_in_bytes,
+			// 	cudaMemcpyDeviceToDevice, //cudaMemcpyDeviceToHost,
+			// 	stream
+			// );
+			cudaMemcpyPeerAsync(
+				k_swap_ptr + start_target_block_id * block_layer_size_in_bytes, // destination pointer
+				1,                                                      // destination device ID
+				k_cache_ptr + start_source_block_id * block_layer_size_in_bytes, // source pointer
+				0,                                                       // source device ID
+				cur_segment_size_in_bytes,                                       // size in bytes
+				stream                                                           // CUDA stream
 			);
-			cudaMemcpyAsync(
-				v_swap_ptr + start_target_block_id * block_layer_size_in_bytes,
-				v_cache_ptr + start_source_block_id * block_layer_size_in_bytes,
-				cur_segment_size_in_bytes,
-				cudaMemcpyDeviceToDevice, //cudaMemcpyDeviceToHost,
-				stream
+			cudaMemcpyPeerAsync(
+				v_swap_ptr + start_target_block_id * block_layer_size_in_bytes, // destination pointer
+				1,                                                      // destination device ID
+				v_cache_ptr + start_source_block_id * block_layer_size_in_bytes, // source pointer
+				0,                                                       // source device ID
+				cur_segment_size_in_bytes,                                       // size in bytes
+				stream                                                           // CUDA stream
 			);
 		}
 

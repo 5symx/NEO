@@ -204,6 +204,24 @@ class LlamaModel:
         # List of performance results, unused if monitor_performance is False
         self.perf_results = []
         self.events = ModelEvents(engine_config)
+
+        # import cupy as cp
+
+        # num_devices = cp.cuda.runtime.getDeviceCount()
+
+        # for i in range(num_devices):
+        #     for j in range(num_devices):
+        #         if i != j:
+        #             can_access = cp.cuda.runtime.deviceCanAccessPeer(i, j)
+        #             print(f"Device {i} can access Device {j}: {bool(can_access)}")
+        #             if can_access:
+        #                 cp.cuda.Device(i).use()
+        #                 try:
+        #                     cp.cuda.runtime.deviceEnablePeerAccess(j)
+        #                     print(f"Enabled peer access from device {i} to device {j}")
+        #                 except cp.cuda.runtime.CUDARuntimeError as e:
+        #                     print(f"Failed to enable peer access from device {i} to device {j}: {e}")
+        
     
 
     @torch.inference_mode()
