@@ -155,7 +155,7 @@ if __name__ == '__main__':
     if args.monitor_performance:
         engine.executor.turn_on_perf_monitor()
     
-    for iteration in range(1):
+    for iteration in range(16):
         batches = [swiftllm.SubBatch() for _ in range(2)]
         for i in range(ngpu_prompts // 2):
             batches[0].add_gdec(reqs[i])

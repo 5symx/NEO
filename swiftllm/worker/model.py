@@ -163,6 +163,9 @@ class LlamaModel:
             torch.ops.load_library(engine_config.library_path)        
         self.Gpu_communication_stream = torch.cuda.Stream()
 
+        with torch.cuda.device('cuda:1'):
+            self.g2G_stream = torch.cuda.Stream()
+
         # Load weights
         self.weight = load_weights(
             model_config,
@@ -183,6 +186,7 @@ class LlamaModel:
                 self.weight.layers[layer_id],
                 self.weight.layers[layer_id + 1 - self.model_config.num_layers],
                 self.Gpu_communication_stream,
+                self.g2G_stream,
                 layer_id
             )
             for layer_id in range(self.model_config.num_layers)
@@ -243,8 +247,8 @@ class LlamaModel:
         for batch in batches:
             batch.prgd_seq_ids = torch.tensor(batch.seq_ids_list[:batch.num_prgds], dtype=torch.int32, device='cuda')
             batch.prgd_seq_lens = torch.tensor(batch.seq_lens_list[:batch.num_prgds], dtype=torch.int32, device='cuda')
-            batch.prgd_seq_ids_post = torch.tensor(batch.seq_ids_list[batch.num_prgds:], dtype=torch.int32, device='cpu')
-            batch.prgd_seq_lens_post = torch.tensor(batch.seq_lens_list[batch.num_prgds:], dtype=torch.int32, device='cpu')
+            batch.prgd_seq_ids_post = torch.tensor(batch.seq_ids_list[batch.num_prgds:], dtype=torch.int32, device='cuda:1')
+            batch.prgd_seq_lens_post = torch.tensor(batch.seq_lens_list[batch.num_prgds:], dtype=torch.int32, device='cuda:1')
             
             batch.pref_st_locs_we = torch.tensor(
                 [0] + list(itertools.accumulate(batch.seq_lens_list[:batch.num_prefs])), 
@@ -281,7 +285,9 @@ class LlamaModel:
 
         """
         # Wait for swappings to finish
-        torch.cuda.current_stream().wait_stream(self.Gpu_communication_stream)
+        # torch.cuda.current_stream().wait_stream(self.Gpu_communication_stream)
+        self.g2G_stream.synchronize()
+        
         self.events.pf_record("mnbd_s")
         for layer in self.transformer_layers:
             embeddings = layer.forward(batch, embeddings)
@@ -365,7 +371,8 @@ class LlamaModel:
             self.swapper.set_block_tables(mappings)
 
         if swappings[0]:
-            with torch.cuda.stream(self.Gpu_communication_stream):
+            # with torch.cuda.stream(self.Gpu_communication_stream):
+            with torch.cuda.stream(self.g2G_stream):
                 for layer_id in range(self.model_config.num_layers):
                     self.swapper.swap_blocks(*swappings, is_swap_out, layer_id, layer_id)
         return self._forward_batches(batches)   # pre - forward - post
