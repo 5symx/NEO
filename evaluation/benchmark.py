@@ -99,7 +99,7 @@ def prepare_mock_test(
     input_lens = _get_rand_array(nreqs, input_len, 0.1)
     output_lens = _get_rand_array(nreqs, output_len, 0.1)
     prompts = [[10] * input_len for input_len in input_lens]
-    res_file = f"{res_dir}/{server_name}-{nreqs}-{input_len}-{output_len}"
+    res_file = f"{res_dir}/{server_name}-{nreqs}-{input_len}-{output_len}-v2"
     return prompts, output_lens, res_file, config['model_path']
 
 

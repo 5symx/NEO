@@ -204,7 +204,7 @@ class AsyncEngine(Engine):
             
             # Forward the model
             if any(b.num_prefs for b in batches):
-                logger.info(f"Forwarding batches with sizes {[(b.num_cprfs, b.num_gprfs, b.num_gdecs, b.num_cdecs) for b in batches]}, "
+                logger.info(f"Forwarding batches with sizes {[(b.num_Gprfs, b.num_gprfs, b.num_gdecs, b.num_Gdecs) for b in batches]}, "
                             f"swap out: {len(cur_swap_out)}, swap in: {len(cur_swap_in)}")
             output_token_ids = await self._run_on_model_executor_async(self.executor.do_one_iteration, batches, *forward_args)
 

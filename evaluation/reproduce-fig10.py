@@ -19,20 +19,20 @@ from illustrator import draw_one_ps_diagram
 
 # Tweak hyperparameters here:
 
-num_data = 2000
+num_data = 800 # 2000
 # Number of total request send to the serving engine, reduce this number to speed up the evaluation process. 
 # However, the result may not be as accurate as the original one due to warm-up and cool-down effects. It is 
 # not recommended to set this number below 800.
 
-input_len = 1000
+input_len = 500 # 1000
 # Length of input sequence, please keep it as 1000 to reproduce the original result.
 
-output_lens = [50, 100, 200, 300, 400]
+output_lens = [400] #, 100, 200, 300, 400]
 # Length of output sequence, reduce the number of elements in the list to speed up the evaluation process.
 
 
 cur_dir = os.path.dirname(os.path.realpath(__file__))
-with open(f"{cur_dir}/configs/config-a10-8b.json", "r") as f:
+with open(f"{cur_dir}/configs/config-t4-7b.json", "r") as f:
     config = json.load(f)
 
 
@@ -41,13 +41,17 @@ async def one_round(server_name: str):
     try:
         for output_len in output_lens:
             await run_test(*prepare_mock_test(num_data, input_len, output_len, server_name, config))
+        # if server_name == "ours":
+        #     await run_test(*prepare_mock_test(800, 500, 50, server_name, config))
+        # if server_name == "base":
+        #     await run_test(*prepare_mock_test(800, 500, 50, server_name, config))
     finally:
         stop_server()
     await asyncio.sleep(5)
 
 
 async def main():
-    await one_round("base")
+    # await one_round("base")
     await one_round("ours")
 
 

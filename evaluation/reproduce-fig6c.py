@@ -13,8 +13,8 @@ import json
 import os
 
 from server import start_server, stop_server
-from benchmark import run_test, prepare_real_test
-from illustrator import draw_one_rl_diagram
+from benchmark import run_test, prepare_real_test, prepare_mock_test
+from illustrator import draw_one_rl_diagram, draw_one_ps_diagram
 
 # Tweak hyperparameters here:
 
@@ -34,8 +34,11 @@ async def one_round(server_name: str):
         # Change the rate argument (in reqs/s) to other values to see more results
         # Feel free to comment out some of the following lines to reduce running time
         if server_name == "ours":
-            for rate in ours_rates:
-                await run_test(*prepare_real_test("osc", config, server_name), rate=rate)
+            # for rate in ours_rates:
+                # await run_test(*prepare_real_test("osc", config, server_name), rate=rate)
+            await run_test(*prepare_mock_test(800, 500, 50, server_name, config))
+        if server_name == "base":
+            await run_test(*prepare_mock_test(800, 500, 50, server_name, config))
         if server_name == "vllm":
             for rate in vllm_rates:
                 await run_test(*prepare_real_test("osc", config, server_name), rate=rate)
@@ -46,7 +49,9 @@ async def one_round(server_name: str):
 
 async def main():
     # await one_round("vllm")
-    await one_round("ours")
+
+    # await one_round("ours")
+    await one_round("base")
 
 
 if __name__ == "__main__":
@@ -61,4 +66,18 @@ if __name__ == "__main__":
     #     ylim=2,
     #     markers=["o", "x"],
     #     set_ylabel=True
+    # )
+
+    # draw_one_ps_diagram(
+    #     title="fig10a",
+    #     base_sys_name="base",
+    #     interv=[0.3, 0.7], # The interval for calculating throughput, we ignore the first 30% and last 30% of the data in order to avoid warm-up and cool-down effects.
+    #     num_datas=[800],
+    #     sys_file_names=["ours"],
+    #     legend_names=["x16large"],
+    #     input_lens=[500],
+    #     output_lens=[50],
+    #     markers=["x"],
+    #     show_ylabels=True,
+    #     show_legend=True
     # )

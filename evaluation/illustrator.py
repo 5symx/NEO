@@ -99,13 +99,22 @@ def draw_one_ps_diagram(
     fig, ax = plt.subplots(1, 1, figsize=(4, 3))
     for i in range(len(num_datas)):
         tps = []
+        tps_v2 = []
+
         for out_len in output_lens:
             file_names = [f'{cur_dir}/results/{sys_name}-{num_datas[i]}-{input_lens[i]}-{out_len}-tp.json' for sys_name in [base_sys_name, sys_file_names[i]]]
             tp_pair = get_tp(file_names, interv)
             tps.append(tp_pair)
+
+            file_names_v2 = [f'{cur_dir}/results/{sys_name}-{num_datas[i]}-{input_lens[i]}-{out_len}-v2-tp.json' for sys_name in [base_sys_name, sys_file_names[i]]]
+            tp_pair_v2 = get_tp(file_names_v2, interv)
+            tps_v2.append(tp_pair_v2)
                
         ratios = [tp1 / tp0 for tp0, tp1 in tps]
         ax.plot(output_lens, ratios, label=f'{legend_names[i]}', marker=markers[i])
+
+        ratios_v2 = [tp1 / tp0 for tp0, tp1 in tps_v2]
+        ax.plot(output_lens, ratios_v2, label=f'{legend_names[i]}-v2', marker=markers[i], linestyle='--')
 
     # draw y = 1 line
     ax.plot([output_lens[0], output_lens[-1]], [1, 1], 'r--', label='baseline')
@@ -118,7 +127,7 @@ def draw_one_ps_diagram(
     handles, labels = ax.get_legend_handles_labels()
     if show_legend:
         ax.legend()
-    fig.savefig(f'{cur_dir}/{title}.pdf', bbox_inches='tight')
+    fig.savefig(f'{cur_dir}/{title}-v2.png', bbox_inches='tight')
     return handles, labels
 
 
