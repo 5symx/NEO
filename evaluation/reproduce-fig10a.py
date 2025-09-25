@@ -19,22 +19,23 @@ from illustrator import draw_one_ps_diagram
 
 # Tweak hyperparameters here:
 
-num_data = 2000
+num_data = 800 #2000
 # Number of total request send to the serving engine, reduce this number to speed up the evaluation process. 
 # However, the result may not be as accurate as the original one due to warm-up and cool-down effects. It is 
 # not recommended to set this number below 800.
 
-input_len = 1000
+input_len = 500 # 1000
 # Length of input sequence, please keep it as 1000 to reproduce the original result.
 
-output_lens = [50, 100, 200, 300, 400]
+output_lens = [50] #, 100, 200, 300, 400]
 # Length of output sequence, reduce the number of elements in the list to speed up the evaluation process.
 
 
 cur_dir = os.path.dirname(os.path.realpath(__file__))
-with open(f"{cur_dir}/configs/config-a10-8b.json", "r") as f:
+# with open(f"{cur_dir}/configs/config-a10-8b.json", "r") as f:
+#     config = json.load(f)
+with open(f"{cur_dir}/configs/config-t4-7b-2.json", "r") as f:
     config = json.load(f)
-
 
 async def one_round(server_name: str):
     start_server(server_name, config)
@@ -53,16 +54,17 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-    draw_one_ps_diagram(
-        title="fig10a",
-        base_sys_name="base",
-        interv=[0.3, 0.7], # The interval for calculating throughput, we ignore the first 30% and last 30% of the data in order to avoid warm-up and cool-down effects.
-        num_datas=[num_data],
-        sys_file_names=["ours"],
-        legend_names=["x16large"],
-        input_lens=[input_len],
-        output_lens=output_lens,
-        markers=["x"],
-        show_ylabels=True,
-        show_legend=True
-    )
+    print(f"finish test")
+    # draw_one_ps_diagram(
+    #     title="fig10a",
+    #     base_sys_name="base",
+    #     interv=[0.3, 0.7], # The interval for calculating throughput, we ignore the first 30% and last 30% of the data in order to avoid warm-up and cool-down effects.
+    #     num_datas=[num_data],
+    #     sys_file_names=["ours"],
+    #     legend_names=["x16large"],
+    #     input_lens=[input_len],
+    #     output_lens=output_lens,
+    #     markers=["x"],
+    #     show_ylabels=True,
+    #     show_legend=True
+    # )

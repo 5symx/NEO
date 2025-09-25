@@ -101,8 +101,12 @@ def draw_one_ps_diagram(
         tps = []
         for out_len in output_lens:
             file_names = [f'{cur_dir}/results/{sys_name}-{num_datas[i]}-{input_lens[i]}-{out_len}-tp.json' for sys_name in [base_sys_name, sys_file_names[i]]]
-            tp_pair = get_tp(file_names, interv)
+            tp_pair = get_tp_token(file_names)#, interv) # get_tp(file_names, interv)
             tps.append(tp_pair)
+
+        # file_names = [f'{cur_dir}/results/{sys_name}-{num_datas[i]}-{input_lens[i]}-{out_len}-tp.json' for sys_name in [base_sys_name, sys_file_names[i]]]
+        # tp_pair = get_tp(file_names, interv)
+        # tps.append(tp_pair)
                
         ratios = [tp1 / tp0 for tp0, tp1 in tps]
         ax.plot(output_lens, ratios, label=f'{legend_names[i]}', marker=markers[i])
@@ -118,7 +122,7 @@ def draw_one_ps_diagram(
     handles, labels = ax.get_legend_handles_labels()
     if show_legend:
         ax.legend()
-    fig.savefig(f'{cur_dir}/{title}.pdf', bbox_inches='tight')
+    fig.savefig(f'{cur_dir}/{title}.png', bbox_inches='tight') #  pdf
     return handles, labels
 
 

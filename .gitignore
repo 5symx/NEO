@@ -174,3 +174,6 @@ profile_results/
 # NEO evaluation results
 evaluation/results/
 evaluation/*.pdf
+evaluation/*.png
+
+flash_attn/
