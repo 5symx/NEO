@@ -131,21 +131,35 @@ if __name__ == '__main__':
         batch = swiftllm.SubBatch()
         for i in gpu_req_ids:
             reqs[i] = swiftllm.create_request(input_ids, i)
-            batch.add_pref(reqs[i], is_gpu_local=True)
+            batch.add_pref(reqs[i], is_gpu=True)
         gpu_reqs = [reqs[i] for i in gpu_req_ids]
         engine.step([batch])    # block_swap + forward
+
+    ### g+c
+    # if nGpu_prompts:
+    #     batch = swiftllm.SubBatch()
+    #     for i in range(ngpu_prompts // 2, nprompts // 2):
+    #         reqs[i] = swiftllm.create_request(input_ids, i)
+    #         batch.add_pref(reqs[i], is_gpu=False)
+    #     engine.step([batch])
+
+    #     batch = swiftllm.SubBatch()
+    #     for i in range(nprompts // 2 + ngpu_prompts // 2, nprompts):
+    #         reqs[i] = swiftllm.create_request(input_ids, i)
+    #         batch.add_pref(reqs[i], is_gpu=False)
+    #     engine.step([batch])
 
     if nGpu_prompts:
         batch = swiftllm.SubBatch()
         for i in range(ngpu_prompts // 2, nprompts // 2):
             reqs[i] = swiftllm.create_request(input_ids, i)
-            batch.add_pref(reqs[i], is_gpu_local=False)
+            batch.add_pref(reqs[i], is_gpu=True)
         engine.step([batch])
 
         batch = swiftllm.SubBatch()
         for i in range(nprompts // 2 + ngpu_prompts // 2, nprompts):
             reqs[i] = swiftllm.create_request(input_ids, i)
-            batch.add_pref(reqs[i], is_gpu_local=False)
+            batch.add_pref(reqs[i], is_gpu=True)
         engine.step([batch])
 
     print("Prefilling phase done")
@@ -155,16 +169,27 @@ if __name__ == '__main__':
     if args.monitor_performance:
         engine.executor.turn_on_perf_monitor()
     
-    for iteration in range(50):
+    for iteration in range(150):
         batches = [swiftllm.SubBatch() for _ in range(2)]
+        # g + c 
+        # for i in range(ngpu_prompts // 2):
+        #     batches[0].add_gdec(reqs[i])
+        # for i in range(ngpu_prompts // 2, nprompts // 2):
+        #     batches[1].add_cdec(reqs[i])
+        # for i in range(nprompts // 2, nprompts // 2 + ngpu_prompts // 2):
+        #     batches[1].add_gdec(reqs[i])
+        # for i in range(nprompts // 2 + ngpu_prompts // 2, nprompts):
+        #     batches[0].add_cdec(reqs[i])
+
+        # g only
         for i in range(ngpu_prompts // 2):
             batches[0].add_gdec(reqs[i])
         for i in range(ngpu_prompts // 2, nprompts // 2):
-            batches[1].add_cdec(reqs[i])
+            batches[1].add_gdec(reqs[i])
         for i in range(nprompts // 2, nprompts // 2 + ngpu_prompts // 2):
             batches[1].add_gdec(reqs[i])
         for i in range(nprompts // 2 + ngpu_prompts // 2, nprompts):
-            batches[0].add_cdec(reqs[i])
+            batches[0].add_gdec(reqs[i])
             
         # Un-comment the following 4 lines to run mixed batches
         # reqs.append(swiftllm.create_request(input_ids, len(reqs)))

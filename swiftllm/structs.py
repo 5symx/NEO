@@ -223,18 +223,18 @@ class SubBatch:
     def __len__(self):
         return self.perfdata.x
 
-    def add_pref(self, req: Request, is_gpu_local: bool):
-        if is_gpu_local:
+    def add_pref(self, req: Request, is_gpu: bool):
+        if is_gpu:
             self.gprf_reqs.append(req)
         else:
             self.Gprf_reqs.append(req)
         self.perfdata.add_pref(req.prompt_len)
 
     def pop_pref(self) -> Request:
-        is_gpu_local = not self.Gprf_reqs
-        req = self.gprf_reqs.pop() if is_gpu_local else self.Gprf_reqs.pop()
+        is_gpu = not self.Gprf_reqs
+        req = self.gprf_reqs.pop() if is_gpu else self.Gprf_reqs.pop()
         self.perfdata.pop_pref(req.prompt_len)
-        return req, is_gpu_local
+        return req, is_gpu
         
     def add_gdec(self, req: Request):
         self.gdec_reqs.append(req)

@@ -1,6 +1,6 @@
 {
     "model": "Llama-2-7b-hf",
-    "model_path": "/home/ubuntu/weights/Llama-2-7b-hf",
+    "model_path": "/home/ymx/.cache/huggingface/hub/models--meta-llama--Llama-2-7b-hf/snapshots/01c7f73d771dfac7d292323805ebc428287df4f9",
     "num_layers": 32,
     "block_size": 16,
     "max_model_len": 832,

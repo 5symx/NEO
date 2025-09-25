@@ -81,6 +81,7 @@ def start_server(name: str, config: dict):
                 "--profile-result-path", f"{neo_dir}/profile_results/",
             ] + cmd
 
+
             server_proc = subprocess.Popen(
                 cmd, 
                 stdout=f,
