@@ -19,7 +19,7 @@ from illustrator import draw_one_ps_diagram
 
 # Tweak hyperparameters here:
 
-num_data = 800 #2000
+num_data = 1000 #2000
 # Number of total request send to the serving engine, reduce this number to speed up the evaluation process. 
 # However, the result may not be as accurate as the original one due to warm-up and cool-down effects. It is 
 # not recommended to set this number below 800.
@@ -27,7 +27,7 @@ num_data = 800 #2000
 input_len = 500 # 1000
 # Length of input sequence, please keep it as 1000 to reproduce the original result.
 
-output_lens = [50] #, 100, 200, 300, 400]
+output_lens = [50, 100, 200, 300, 400]
 # Length of output sequence, reduce the number of elements in the list to speed up the evaluation process.
 
 
@@ -49,11 +49,11 @@ async def one_round(server_name: str):
 
 async def main():
     await one_round("base")
-    # await one_round("ours")
+    await one_round("ours")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # asyncio.run(main())
     print(f"finish test")
     # draw_one_ps_diagram(
     #     title="fig10a",
@@ -68,3 +68,17 @@ if __name__ == "__main__":
     #     show_ylabels=True,
     #     show_legend=True
     # )
+
+    draw_one_ps_diagram(
+        title="fig10a",
+        base_sys_name="base",
+        interv=[0.3, 0.7], # The interval for calculating throughput, we ignore the first 30% and last 30% of the data in order to avoid warm-up and cool-down effects.
+        num_datas=[1000],
+        sys_file_names=["ours"],
+        legend_names=["x16large"],
+        input_lens=[500],
+        output_lens=[50, 100, 200, 300, 400],
+        markers=["x"],
+        show_ylabels=True,
+        show_legend=True
+    )

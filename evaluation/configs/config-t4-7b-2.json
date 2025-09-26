@@ -3,12 +3,12 @@
     "model_path": "/home/ymx/.cache/huggingface/hub/models--meta-llama--Llama-2-7b-hf/snapshots/01c7f73d771dfac7d292323805ebc428287df4f9",
     "num_layers": 32,
     "block_size": 16,
-    "max_model_len": 832,
+    "max_model_len": 1500,
     "max_num_seqs": 512,
-    "max_num_batched_tokens": 832,
+    "max_num_batched_tokens": 1500,
     "tensor_parallel_size": 1,
     "gpu_memory_utilization": 0.99,
-    "num_gpu_blocks_override": 54,
+    "num_gpu_blocks_override": 500,
     "swap_space": 20,
     "library": "libpacpu-llama2_7b-tp1.so"
 }
