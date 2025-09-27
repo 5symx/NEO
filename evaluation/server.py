@@ -19,6 +19,18 @@ def start_server(name: str, config: dict):
     global server_proc
 
     numacmd = ["numactl", "-N", "0", "-m", "0"]
+    nsys_cmd = [
+        "nsys", "profile",
+        "--trace=cuda,nvtx,osrt",
+        "--sample=cpu",
+        "--capture-range=nvtx",
+        "--capture-range-end=stop",
+        "-o", "swiftllm_profile",
+        "--wait=primary",
+        "--delay","10",
+        "--duration","3"
+    ]
+    
     with open(f"{cur_dir}/{name}-server.log", "w") as f:
         if name[:4] == "vllm":
             chunk_size_str = name[4:] if name != "vllm" else str(config["num_gpu_blocks_override"] * config["block_size"])
@@ -64,7 +76,7 @@ def start_server(name: str, config: dict):
                 num_gpu_blocks_override = config["num_gpu_blocks_override"] * nl // (nl + 1)
                 swap_space = config["swap_space"]
             
-            cmd = numacmd + [
+            cmd = nsys_cmd + numacmd + [
                 sys.executable, "-m", "swiftllm.server.api_server",
                 "--port", "8000",
                 "--model-path", config["model_path"],

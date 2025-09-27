@@ -55,7 +55,7 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # asyncio.run(main())
     print(f"finish test")
     # draw_one_rl_diagram(
     #     title="fig6c",
@@ -68,16 +68,16 @@ if __name__ == "__main__":
     #     set_ylabel=True
     # )
 
-    # draw_one_ps_diagram(
-    #     title="fig10a",
-    #     base_sys_name="base",
-    #     interv=[0.3, 0.7], # The interval for calculating throughput, we ignore the first 30% and last 30% of the data in order to avoid warm-up and cool-down effects.
-    #     num_datas=[800],
-    #     sys_file_names=["ours"],
-    #     legend_names=["x16large"],
-    #     input_lens=[500],
-    #     output_lens=[50],
-    #     markers=["x"],
-    #     show_ylabels=True,
-    #     show_legend=True
-    # )
+    draw_one_ps_diagram(
+        title="fig10a",
+        base_sys_name="base",
+        interv=[0.3, 0.7], # The interval for calculating throughput, we ignore the first 30% and last 30% of the data in order to avoid warm-up and cool-down effects.
+        num_datas=[800],
+        sys_file_names=["ours"],
+        legend_names=["x16large"],
+        input_lens=[500],
+        output_lens=[50],
+        markers=["x"],
+        show_ylabels=True,
+        show_legend=True
+    )

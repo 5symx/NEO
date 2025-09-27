@@ -103,11 +103,15 @@ def draw_one_ps_diagram(
 
         for out_len in output_lens:
             file_names = [f'{cur_dir}/results/{sys_name}-{num_datas[i]}-{input_lens[i]}-{out_len}-tp.json' for sys_name in [base_sys_name, sys_file_names[i]]]
-            tp_pair = get_tp(file_names, interv)
+            tp_pair = get_tp_token(file_names) #get_tp(file_names, interv)
             tps.append(tp_pair)
 
-            file_names_v2 = [f'{cur_dir}/results/{sys_name}-{num_datas[i]}-{input_lens[i]}-{out_len}-v2-tp.json' for sys_name in [base_sys_name, sys_file_names[i]]]
-            tp_pair_v2 = get_tp(file_names_v2, interv)
+            # file_names_v2 = [f'{cur_dir}/results/{sys_name}-{num_datas[i]}-{input_lens[i]}-{out_len}-v2-tp.json' for sys_name in [ base_sys_name, sys_file_names[i]]] # base_sys_name
+            file_names_v2 = [
+                f'{cur_dir}/results/{sys_name}-{num_datas[i]}-{input_lens[i]}-{out_len}-{"v2-" if sys_name != base_sys_name else ""}tp.json'
+                for sys_name in [base_sys_name, sys_file_names[i]]
+            ]
+            tp_pair_v2 = get_tp_token(file_names_v2) #get_tp(file_names_v2, interv)
             tps_v2.append(tp_pair_v2)
                
         ratios = [tp1 / tp0 for tp0, tp1 in tps]
@@ -115,6 +119,18 @@ def draw_one_ps_diagram(
 
         ratios_v2 = [tp1 / tp0 for tp0, tp1 in tps_v2]
         ax.plot(output_lens, ratios_v2, label=f'{legend_names[i]}-v2', marker=markers[i], linestyle='--')
+
+        # for out_len in output_lens:
+        #     file_names = [
+        #         f'{cur_dir}/results/{"ours" if sys_name != base_sys_name else "ours"}-{num_datas[i]}-{input_lens[i]}-{out_len}-{"v2-" if sys_name != base_sys_name else ""}tp.json'
+        #         for sys_name in [base_sys_name, sys_file_names[i]]
+        #     ]
+        #     # file_base_names = [f'{cur_dir}/results/{sys_name}-{num_datas[i]}-{input_lens[i]}-{out_len}-tp.json' for sys_name in [base_sys_name]]
+        #     tp_base_pair = get_tp_token(file_names) #get_tp(file_names, interv)
+        #     tps.append(tp_base_pair)
+        
+        # ratios = [tp1 / tp0 for tp0, tp1 in tps]
+        # ax.plot(output_lens, ratios, label=f'{legend_names[i]}', marker=markers[i])
 
     # draw y = 1 line
     ax.plot([output_lens[0], output_lens[-1]], [1, 1], 'r--', label='baseline')

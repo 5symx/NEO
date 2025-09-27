@@ -172,24 +172,24 @@ if __name__ == '__main__':
     for iteration in range(150):
         batches = [swiftllm.SubBatch() for _ in range(2)]
         # g + c 
-        # for i in range(ngpu_prompts // 2):
-        #     batches[0].add_gdec(reqs[i])
-        # for i in range(ngpu_prompts // 2, nprompts // 2):
-        #     batches[1].add_cdec(reqs[i])
-        # for i in range(nprompts // 2, nprompts // 2 + ngpu_prompts // 2):
-        #     batches[1].add_gdec(reqs[i])
-        # for i in range(nprompts // 2 + ngpu_prompts // 2, nprompts):
-        #     batches[0].add_cdec(reqs[i])
-
-        # g only
         for i in range(ngpu_prompts // 2):
             batches[0].add_gdec(reqs[i])
         for i in range(ngpu_prompts // 2, nprompts // 2):
-            batches[1].add_gdec(reqs[i])
+            batches[1].add_cdec(reqs[i])
         for i in range(nprompts // 2, nprompts // 2 + ngpu_prompts // 2):
             batches[1].add_gdec(reqs[i])
         for i in range(nprompts // 2 + ngpu_prompts // 2, nprompts):
-            batches[0].add_gdec(reqs[i])
+            batches[0].add_cdec(reqs[i])
+
+        # g only
+        # for i in range(ngpu_prompts // 2):
+        #     batches[0].add_gdec(reqs[i])
+        # for i in range(ngpu_prompts // 2, nprompts // 2):
+        #     batches[1].add_gdec(reqs[i])
+        # for i in range(nprompts // 2, nprompts // 2 + ngpu_prompts // 2):
+        #     batches[1].add_gdec(reqs[i])
+        # for i in range(nprompts // 2 + ngpu_prompts // 2, nprompts):
+        #     batches[0].add_gdec(reqs[i])
             
         # Un-comment the following 4 lines to run mixed batches
         # reqs.append(swiftllm.create_request(input_ids, len(reqs)))
