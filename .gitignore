@@ -177,3 +177,4 @@ evaluation/*.pdf
 evaluation/*.png
 
 flash_attn/
+*.png

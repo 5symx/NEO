@@ -11,6 +11,7 @@ import argparse
 from transformers import AutoTokenizer
 
 import swiftllm
+import statistics
 
 
 if __name__ == '__main__':
@@ -94,7 +95,7 @@ if __name__ == '__main__':
         max_blocks_per_seq = 100,
 
         max_batch_size = 10,
-        max_tokens_in_batch = 600,
+        max_tokens_in_batch = 1500, # 600
 
         library_path=f"{repo_dir}/pacpu/build/libpacpu-{args.model_name}-tp{args.tp_degree}.so",
         profile_result_path=args.profile_result_path,
@@ -154,28 +155,51 @@ if __name__ == '__main__':
     # 4. Run the inference
     if args.monitor_performace:
         engine.executor.turn_on_perf_monitor()
+
+    e2e_times = []
     
-    for iteration in range(16):
-        batches = [swiftllm.SubBatch() for _ in range(2)]
-        for i in range(ngpu_prompts // 2):
-            batches[0].add_gdec(reqs[i])
-        for i in range(ngpu_prompts // 2, nprompts // 2):
-            batches[1].add_cdec(reqs[i])
-        for i in range(nprompts // 2, nprompts // 2 + ngpu_prompts // 2):
-            batches[1].add_gdec(reqs[i])
-        for i in range(nprompts // 2 + ngpu_prompts // 2, nprompts):
-            batches[0].add_cdec(reqs[i])
+    # for iteration in range(16):
+    #     batches = [swiftllm.SubBatch() for _ in range(2)]
+    #     for i in range(ngpu_prompts // 2):
+    #         batches[0].add_gdec(reqs[i])
+    #     for i in range(ngpu_prompts // 2, nprompts // 2):
+    #         batches[1].add_cdec(reqs[i])
+    #     for i in range(nprompts // 2, nprompts // 2 + ngpu_prompts // 2):
+    #         batches[1].add_gdec(reqs[i])
+    #     for i in range(nprompts // 2 + ngpu_prompts // 2, nprompts):
+    #         batches[0].add_cdec(reqs[i])
             
-        # Un-comment the following 4 lines to run mixed batches
-        # reqs.append(swiftllm.create_request(input_ids, len(reqs)))
-        # reqs.append(swiftllm.create_request(input_ids, len(reqs)))
-        # batches[0].add_pref(reqs[-2], is_gpu=False)
-        # batches[1].add_pref(reqs[-1], is_gpu=False)
+    #     # Un-comment the following 4 lines to run mixed batches
+    #     # reqs.append(swiftllm.create_request(input_ids, len(reqs)))
+    #     # reqs.append(swiftllm.create_request(input_ids, len(reqs)))
+    #     # batches[0].add_pref(reqs[-2], is_gpu=False)
+    #     # batches[1].add_pref(reqs[-1], is_gpu=False)
+
+    #     start = time.perf_counter()
+    #     engine.step(batches)
+    #     end = time.perf_counter()
+    #     print(f"Iteration {iteration:3} E2E time: {(end - start) * 1000:.4f} ms")
+
+    for iteration in range(150):
+        batch = swiftllm.SubBatch()
+        for i in range(ngpu_prompts // 2):
+            batch.add_gdec(reqs[i])
+        for i in range(ngpu_prompts // 2, nprompts // 2):
+            batch.add_cdec(reqs[i])
+        for i in range(nprompts // 2, nprompts // 2 + ngpu_prompts // 2):
+            batch.add_gdec(reqs[i])
+        for i in range(nprompts // 2 + ngpu_prompts // 2, nprompts):
+            batch.add_cdec(reqs[i])
 
         start = time.perf_counter()
-        engine.step(batches)
+        engine.step([batch])
         end = time.perf_counter()
+
+        e2e_time_ms = (end - start) * 1000
         print(f"Iteration {iteration:3} E2E time: {(end - start) * 1000:.4f} ms")
+
+        if iteration >= 2:
+            e2e_times.append(e2e_time_ms)
     
     for i in range(nprompts):
         if i in (0, nprompts // 2 - 1, nprompts - 1):
@@ -185,3 +209,9 @@ if __name__ == '__main__':
     if args.monitor_performace:
         res = engine.executor.turn_off_perf_monitor_and_flush_results()
         print(res)
+
+    avg_time = statistics.mean(e2e_times)
+    std_time = statistics.stdev(e2e_times)
+    print(f"\nAverage E2E time (from iteration 2): {avg_time:.4f} ms")
+    print(f"Standard deviation: {std_time:.4f} ms")
+
