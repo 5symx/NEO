@@ -267,8 +267,11 @@ class LlamaModel:
         for batch in batches:
             batch.prgd_seq_ids = torch.tensor(batch.seq_ids_list[:batch.num_prgds], dtype=torch.int32, device='cuda')
             batch.prgd_seq_lens = torch.tensor(batch.seq_lens_list[:batch.num_prgds], dtype=torch.int32, device='cuda')
-            batch.prgd_seq_ids_post = torch.tensor(batch.seq_ids_list[batch.num_prgds:], dtype=torch.int32, device='cuda:1')
-            batch.prgd_seq_lens_post = torch.tensor(batch.seq_lens_list[batch.num_prgds:], dtype=torch.int32, device='cuda:1')
+
+            # batch.prgd_seq_ids_post = torch.tensor(batch.seq_ids_list[batch.num_prgds:], dtype=torch.int32, device='cuda:1')
+            # batch.prgd_seq_lens_post = torch.tensor(batch.seq_lens_list[batch.num_prgds:], dtype=torch.int32, device='cuda:1')
+            batch.prgd_seq_ids_post = torch.tensor(batch.seq_ids_list[-batch.num_Gdecs:], dtype=torch.int32, device='cuda:1')
+            batch.prgd_seq_lens_post = torch.tensor(batch.seq_lens_list[-batch.num_Gdecs:], dtype=torch.int32, device='cuda:1')
             
             batch.pref_st_locs_we = torch.tensor(
                 [0] + list(itertools.accumulate(batch.seq_lens_list[:batch.num_prefs])), 
